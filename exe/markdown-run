@@ -1,3 +1,369 @@
 #!/usr/bin/env ruby
 
-require "markdown/run"
+require 'tempfile'
+require 'open3'
+require 'fileutils'
+
+# --- Language Execution Configuration ---
+JS_CONFIG = {
+  command: ->(_code_content, temp_file_path) { [ "bun #{temp_file_path}", {} ] },
+  temp_file_suffix: '.js',
+  error_handling: :js_specific # For specific stderr appending on error
+}.freeze
+
+SQLITE_CONFIG = {
+  command: ->(code_content, temp_file_path) { [ "sqlite3 #{temp_file_path}", { stdin_data: code_content } ] },
+  temp_file_suffix: '.db' # Temp file is the database
+}.freeze
+
+SUPPORTED_LANGUAGES = {
+  'psql' => {
+    command: ->(code_content, _temp_file_path) { [ "psql -A -t -X", { stdin_data: code_content } ] }
+  },
+  'ruby' => {
+    command: ->(_code_content, temp_file_path) { [ "xmpfilter #{temp_file_path}", {} ] },
+    temp_file_suffix: '.rb',
+    result_block_type: 'ruby' # For special '```ruby RESULT' blocks
+  },
+  'js' => JS_CONFIG,
+  'javascript' => JS_CONFIG, # Alias for js
+  'sqlite' => SQLITE_CONFIG,
+  'sqlite3' => SQLITE_CONFIG # Alias for sqlite
+}.freeze
+
+LANGUAGE_REGEX_PART = SUPPORTED_LANGUAGES.keys.map { |lang| Regexp.escape(lang) }.join('|').freeze
+CODE_BLOCK_START_REGEX = /^```(#{LANGUAGE_REGEX_PART})$/i.freeze
+# --- End Language Execution Configuration ---
+
+if ARGV.empty?
+  require 'bundler/inline'
+  gemfile(true) do
+    source 'https://rubygems.org'
+    gem 'minitest' # You can specify a version like '~> 5.10' if needed
+  end
+
+  puts "Running tests..."
+  require 'minitest/spec'
+  require 'minitest/autorun'
+end
+
+# Script to process markdown files, execute code blocks based on language,
+# and insert their results back into the markdown.
+
+def execute_code_block(code_content, lang, temp_dir)
+  result_output = ""
+  stderr_output = ""
+  exit_status = 0
+  captured_stdout, captured_stderr, captured_status_obj = nil, nil, nil
+
+  lang_key = lang.downcase # Normalize lang input for lookup
+  lang_config = SUPPORTED_LANGUAGES[lang_key]
+
+  if lang_config
+    warn "Executing #{lang_key} code block..." # Generic description
+    cmd_lambda = lang_config[:command]
+    temp_file_suffix = lang_config[:temp_file_suffix]
+
+    # Determine command and options using the lambda
+    # The lambda receives code_content and a potential temp_file_path
+    # It returns [command_string, options_hash_for_open3]
+
+    if temp_file_suffix # Needs a temporary file. Use lang_key as prefix.
+      Tempfile.create([lang_key, temp_file_suffix], temp_dir) do |temp_file|
+        temp_file.write(code_content)
+        temp_file.close
+        # Pass temp_file.path. Lambda decides if it needs code_content directly.
+        command_to_run, exec_options = cmd_lambda.call(code_content, temp_file.path)
+        captured_stdout, captured_stderr, captured_status_obj = Open3.capture3(command_to_run, **exec_options)
+      end
+    else # Direct command execution (e.g., psql that takes stdin)
+      # Pass nil for temp_file_path. Lambda decides if it needs code_content.
+      command_to_run, exec_options = cmd_lambda.call(code_content, nil)
+      captured_stdout, captured_stderr, captured_status_obj = Open3.capture3(command_to_run, **exec_options)
+    end
+  else
+    warn "Unsupported language: #{lang}"
+    result_output = "ERROR: Unsupported language: #{lang}"
+    exit_status = 1 # Indicate an error
+    # captured_status_obj remains nil, so common assignments below won't run
+  end
+
+  # Common assignment logic for cases that used Open3.capture3
+  if captured_status_obj
+    result_output = captured_stdout
+    stderr_output = captured_stderr
+    exit_status = captured_status_obj.exitstatus
+
+    # JS-specific: Append stderr to result if execution failed and stderr has content
+    if lang_config && lang_config[:error_handling] == :js_specific && exit_status != 0 && stderr_output && !stderr_output.strip.empty?
+      result_output += "\nStderr:\n#{stderr_output.strip}" # Ensure stripping
+    end
+  end
+
+  # Common error message enhancement
+  if exit_status != 0
+    warn "Code execution failed for language '#{lang_key}' with status #{exit_status}."
+    warn "Stderr:\n#{stderr_output}" if stderr_output && !stderr_output.strip.empty?
+
+    is_js_error_already_formatted = lang_config && lang_config[:error_handling] == :js_specific && result_output.include?("Stderr:")
+    unless result_output.downcase.include?("error:") || is_js_error_already_formatted
+      error_prefix = "Execution failed (status: #{exit_status})."
+      if stderr_output && !stderr_output.strip.empty?
+        error_prefix += " Stderr: #{stderr_output.strip}"
+      end
+      result_output = "#{error_prefix}\n#{result_output}"
+    end
+  end
+  result_output
+end
+
+def process_markdown_file_main(input_file_path)
+  unless File.exist?(input_file_path) && File.readable?(input_file_path)
+    warn "Error: Input file '#{input_file_path}' not found or not readable."
+    return false # Indicate failure
+  end
+
+  temp_dir = File.dirname(File.expand_path(input_file_path))
+  output_lines = []
+  file_enum = File.foreach(input_file_path, chomp: false).to_enum
+
+  in_code_block = false
+  current_block_lang = ""
+  current_code_content = ""
+
+  loop do
+    current_line = nil
+    begin
+      current_line = file_enum.next
+    rescue StopIteration
+      break # End of file
+    end
+
+    if !in_code_block
+      # Case 1: A ```ruby RESULT block encountered directly
+      if current_line.match?(/^```ruby\s+RESULT$/i)
+        warn "Found existing '```ruby RESULT' block, passing through."
+        output_lines << current_line # The ```ruby RESULT line
+        begin
+          loop do
+            block_line = file_enum.next
+            output_lines << block_line
+            break if block_line.strip == '```'
+          end
+        rescue StopIteration
+          warn "Warning: End of file reached inside a '```ruby RESULT' block."
+          break # Exit main loop, as the file is malformed or ended abruptly
+        end
+        next # Continue to the next line from the file
+      # Case 2: Start of a new executable code block ```lang
+      elsif (match_data = current_line.match(CODE_BLOCK_START_REGEX))
+        output_lines << current_line # The opening ```lang line
+        current_block_lang = match_data[1].downcase
+        in_code_block = true
+        current_code_content = "" # Reset for the new block
+        next # Continue to the next line from the file
+      # Case 3: Any other line (normal text, non-executable ```foo, or generic ```RESULT not after an exec block)
+      else
+        output_lines << current_line
+        next # Continue to the next line from the file
+      end
+    else # We are in_code_block (current_block_lang is set, current_code_content is accumulating)
+      # Case 4: End of the current code block (```)
+      if current_line.strip == '```'
+        output_lines << current_line # The closing ``` of the code block
+
+        execute_this_block = true # Assume execution by default
+        lines_to_pass_through_if_skipped = [] # For blank line + RESULT header if skipping
+        blank_line_before_new_result = nil # If a blank line is consumed but block is still executed
+
+        # Peek ahead logic
+        peek1 = nil
+        begin; peek1 = file_enum.peek; rescue StopIteration; end # If EOF, execute_this_block remains true
+
+        current_lang_config = SUPPORTED_LANGUAGES[current_block_lang] # Get config for the current block
+        is_ruby_style_result = current_lang_config && current_lang_config[:result_block_type] == 'ruby'
+
+        expected_header_regex = is_ruby_style_result ? /^```ruby\s+RESULT$/i : /^```RESULT$/i
+
+        if peek1 && peek1.match?(expected_header_regex)
+          execute_this_block = false
+          lines_to_pass_through_if_skipped << file_enum.next # Consume RESULT header
+        elsif peek1 && peek1.strip == "" # Blank line detected
+          consumed_blank_line = file_enum.next # Consume the blank line from enum
+
+          peek2 = nil
+          begin; peek2 = file_enum.peek; rescue StopIteration; end # EOF after blank line
+
+          if peek2 && peek2.match?(expected_header_regex)
+            execute_this_block = false
+            lines_to_pass_through_if_skipped << consumed_blank_line # Add consumed blank line
+            lines_to_pass_through_if_skipped << file_enum.next    # Consume RESULT header
+          else
+            # Blank line, but not followed by a RESULT header (or EOF after blank).
+            # We will execute the block. The consumed_blank_line should be outputted.
+            blank_line_before_new_result = consumed_blank_line
+            # execute_this_block remains true
+          end
+        end
+        # If peek1 was nil (EOF) or something else not matching, execute_this_block remains true.
+
+        if execute_this_block
+          output_lines << blank_line_before_new_result if blank_line_before_new_result
+          if !current_code_content.strip.empty?
+            warn "Executing #{current_block_lang} code block..."
+            result_output = execute_code_block(current_code_content, current_block_lang, temp_dir)
+
+            output_lines << "\n" if blank_line_before_new_result.nil?
+            output_lines << (is_ruby_style_result ? "```ruby RESULT\n" : "```RESULT\n")
+            output_lines << result_output
+            output_lines << "\n" unless result_output.empty? || result_output.end_with?("\n")
+            output_lines << "```\n\n" # Ensures a blank line after the RESULT block
+          else
+            warn "Skipping empty code block for language '#{current_block_lang}'."
+          end
+        else # Do not execute; a RESULT block follows and was identified
+          lang_specific_result_type = is_ruby_style_result ? "```ruby RESULT" : "```RESULT"
+          warn "Found existing '#{lang_specific_result_type}' block for current #{current_block_lang} block, skipping execution."
+
+          output_lines.concat(lines_to_pass_through_if_skipped) # Add blank line (if any) and RESULT header
+
+          # Consume the rest of the RESULT block content until its closing ```
+          begin
+            loop do
+              result_block_line = file_enum.next
+              output_lines << result_block_line
+              break if result_block_line.strip == '```'
+            end
+          rescue StopIteration
+            warn "Warning: End of file reached inside a skipped 'RESULT' block."
+            break # Exit main loop
+          end
+        end
+
+        in_code_block = false
+        current_code_content = "" # Reset for next block
+        next # Continue to the next line from the file
+      # Case 5: Line inside an active code block
+      else
+        current_code_content += current_line
+        output_lines << current_line # This line is part of the original code block being recorded
+        next # Continue to the next line from the file
+      end
+    end
+  end # loop
+
+  # Write the modified content back to the input file
+  Tempfile.create([ 'md_exec_out_', File.extname(input_file_path) ], temp_dir) do |temp_output_file|
+    temp_output_file.write(output_lines.join(''))
+    temp_output_file.close
+    begin
+      FileUtils.mv(temp_output_file.path, input_file_path)
+    rescue Errno::EACCES, Errno::EXDEV
+      warn "Atomic move failed. Falling back to copy and delete."
+      FileUtils.cp(temp_output_file.path, input_file_path)
+      FileUtils.rm_f(temp_output_file.path)
+    end
+  end
+  warn "Markdown processing complete. Output written to #{input_file_path}"
+  true # Indicate success
+end
+
+# --- Minitest Test Class Definition ---
+class TestMarkdownExec < Minitest::Test
+  def setup
+    @temp_dir = Dir.mktmpdir("markdown_exec_tests")
+    @test_md_file_path = File.join(@temp_dir, "test.md")
+  end
+
+  def teardown
+    FileUtils.remove_entry @temp_dir if @temp_dir && Dir.exist?(@temp_dir)
+  end
+
+  def create_md_file(content)
+    File.write(@test_md_file_path, content)
+    @test_md_file_path
+  end
+
+  def read_md_file
+    File.read(@test_md_file_path)
+  end
+
+  def test_script_runs_without_error_on_empty_file
+    create_md_file("")
+    assert process_markdown_file_main(@test_md_file_path), "Processing empty file should succeed"
+    assert_equal "", read_md_file.strip, "Empty file should remain empty after processing"
+  end
+
+  def test_psql_block_execution
+    md_content = <<~MARKDOWN
+      ```psql
+      SELECT 'hello psql test';
+      ```
+    MARKDOWN
+    create_md_file(md_content)
+    process_markdown_file_main(@test_md_file_path)
+
+    expected_output = <<~MARKDOWN.strip
+      ```psql
+      SELECT 'hello psql test';
+      ```
+
+      ```RESULT
+      hello psql test
+      ```
+    MARKDOWN
+    assert_equal expected_output, read_md_file.strip
+  end
+
+  def test_ruby_block_execution_and_result_generation
+    md_content = <<~MARKDOWN
+      ```ruby
+      puts "Hello from Ruby"
+      p 1 + 2
+      ```
+    MARKDOWN
+    create_md_file(md_content)
+    process_markdown_file_main(@test_md_file_path)
+
+    file_content = read_md_file
+    assert file_content.include?("```ruby\nputs \"Hello from Ruby\""), "Original Ruby code should be present"
+    assert file_content.include?("```ruby RESULT\n"), "Ruby RESULT block should be created"
+    assert file_content.include?("3"), "Output from p 1 + 2 should be in the result"
+  end
+
+  def test_skip_execution_if_result_block_exists
+    original_content = <<~MARKDOWN
+      ```psql
+      SELECT 'this should not run';
+      ```
+
+      ```RESULT
+      pre-existing result
+      ```
+    MARKDOWN
+    create_md_file(original_content)
+    process_markdown_file_main(@test_md_file_path)
+
+    assert_equal original_content.strip, read_md_file.strip, "Should not execute if RESULT block exists"
+  end
+
+  def test_skip_execution_if_ruby_result_block_exists
+    original_content = <<~MARKDOWN
+      ```ruby
+      puts "this should not run either"
+      ```
+
+      ```ruby RESULT
+      this is a pre-existing ruby result
+      ```
+    MARKDOWN
+    create_md_file(original_content)
+    process_markdown_file_main(@test_md_file_path)
+
+    assert_equal original_content.strip, read_md_file.strip, "Should not execute if ```ruby RESULT block exists"
+  end
+end
+
+unless ARGV.empty?
+  process_markdown_file_main(ARGV[0])
+end
