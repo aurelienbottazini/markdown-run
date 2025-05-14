@@ -7,6 +7,11 @@ And the result should be shown in a following codeblock
 p "foo"
 ```
 
+```ruby RESULT
+p "foo"
+# >> "foo"
+```
+
 ```js
 1 + 2;
 console.log(3);
@@ -47,3 +52,4 @@ Page cache spills:                   0
 Schema Heap Usage:                   0 bytes
 Statement Heap/Lookaside Usage:      0 bytes
 ```
+

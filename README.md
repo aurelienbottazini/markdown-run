@@ -15,7 +15,7 @@
 
 ## Demo
 
-![VSCode Usage](docs/vscode-usage.mp4)
+![VSCode Usage](docs/usage-example-vscode.mp4)
 
 ## Development
 
