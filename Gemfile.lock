@@ -2,7 +2,7 @@ PATH
   remote: .
   specs:
     markdown-run (0.1.3)
-      minitest
+      minitest (= 5.25.5)
       rcodetools
 
 GEM
