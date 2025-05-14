@@ -40,6 +40,7 @@ if ARGV.empty?
   gemfile(true) do
     source "https://rubygems.org"
     gem "minitest" # You can specify a version like '~> 5.10' if needed
+    gem "rcodetools"
   end
 
   puts "Running tests..."
