@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    markdown-run (0.1.1)
+    markdown-run (0.1.2)
       rcodetools
 
 GEM
