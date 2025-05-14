@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [0.3.0] - 2025-05-14
+
+- Fix missing minitest dep
+
 ## [0.2.0] - 2025-05-14
 
 - Gemfile update
