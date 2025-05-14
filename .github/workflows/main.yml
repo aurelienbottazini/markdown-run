@@ -24,4 +24,4 @@ jobs:
         ruby-version: ${{ matrix.ruby }}
         bundler-cache: true
     - name: Run minitest
-      run: ./exe/markdown-run
+      run: bundle exec ./exe/markdown-run
