@@ -6,7 +6,16 @@ require "fileutils"
 
 # --- Language Execution Configuration ---
 JS_CONFIG = {
-  command: ->(_code_content, temp_file_path) { [ "bun #{temp_file_path}", {} ] },
+  command: ->(_code_content, temp_file_path) {
+    # Check if bun is available
+    bun_exists = system("command -v bun > /dev/null 2>&1")
+    if bun_exists
+      [ "bun #{temp_file_path}", {} ]
+    else
+      # Fallback to node if bun is not available
+      [ "node #{temp_file_path}", {} ]
+    end
+  },
   temp_file_suffix: ".js",
   error_handling: :js_specific # For specific stderr appending on error
 }.freeze
