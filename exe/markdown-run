@@ -293,6 +293,8 @@ class TestMarkdownExec < Minitest::Test
   end
 
   def test_psql_block_execution
+    skip "Skipping test_psql_block_execution on GitHub CI" if ENV['CI']
+
     md_content = <<~MARKDOWN
       ```psql
       SELECT 'hello psql test';
