@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [0.2.0] - 2025-05-14
+
+- Gemfile update
+
 ## [0.1.1] - 2025-05-14
 
 - Added checks for missing dependencies
