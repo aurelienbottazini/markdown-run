@@ -3,6 +3,7 @@
 require "tempfile"
 require "open3"
 require "fileutils"
+require "minitest/spec"
 
 # --- Language Execution Configuration ---
 JS_CONFIG = {
@@ -65,7 +66,6 @@ if ARGV.empty?
   end
 
   puts "Running tests..."
-  require "minitest/spec"
   require "minitest/autorun"
 end
 
