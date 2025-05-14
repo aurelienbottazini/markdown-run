@@ -30,8 +30,7 @@ SUPPORTED_LANGUAGES = {
     command: ->(code_content, _temp_file_path) {
       psql_exists = system("command -v psql > /dev/null 2>&1")
       unless psql_exists
-        warn "Error: psql command not found. Please install PostgreSQL or ensure psql is in your PATH."
-        exit 1 # Abort the script
+        abort "Error: psql command not found. Please install PostgreSQL or ensure psql is in your PATH."
       end
       [ "psql -A -t -X", { stdin_data: code_content } ]
     }
@@ -40,8 +39,7 @@ SUPPORTED_LANGUAGES = {
     command: ->(_code_content, temp_file_path) {
       xmpfilter_exists = system("command -v xmpfilter > /dev/null 2>&1")
       unless xmpfilter_exists
-        warn "Error: xmpfilter command not found. Please install xmpfilter or ensure it is in your PATH."
-        exit 1 # Abort the script
+        abort "Error: xmpfilter command not found. Please install xmpfilter or ensure it is in your PATH."
       end
       [ "xmpfilter #{temp_file_path}", {} ]
     },
