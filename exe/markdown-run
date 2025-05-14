@@ -61,7 +61,7 @@ if ARGV.empty?
   require "bundler/inline"
   gemfile(true) do
     source "https://rubygems.org"
-    gem "minitest" # You can specify a version like '~> 5.10' if needed
+    gem "minitest", "5.25.5" # Specify the required version
     gem "rcodetools"
   end
 
