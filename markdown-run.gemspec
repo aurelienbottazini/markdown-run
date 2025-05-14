@@ -2,11 +2,13 @@
 
 require_relative "lib/markdown/run/version"
 
+# add rcodetools as a gem dependency
+#
 Gem::Specification.new do |spec|
   spec.name = "markdown-run"
   spec.version = Markdown::Run::VERSION
-  spec.authors = ["Aurélien Bottazini"]
-  spec.email = ["32635+aurelienbottazini@users.noreply.github.com"]
+  spec.authors = [ "Aurélien Bottazini" ]
+  spec.email = [ "32635+aurelienbottazini@users.noreply.github.com" ]
 
   spec.summary = "Run code blocks in Markdown files"
   spec.description = "Run code blocks in Markdown files. Store output in a code block following the original code block."
@@ -30,7 +32,9 @@ Gem::Specification.new do |spec|
   end
   spec.bindir = "exe"
   spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
-  spec.require_paths = ["lib"]
+  spec.require_paths = [ "lib" ]
+
+  spec.add_dependency 'rcodetools'
 
   # Uncomment to register a new dependency of your gem
   # spec.add_dependency "example-gem", "~> 1.0"
