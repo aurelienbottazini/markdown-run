@@ -13,6 +13,10 @@
 - Run specs `markdown-run`
 - Run on a markdown file `markdown-run your-filename`
 
+## Demo
+
+![VSCode Usage](docs/vscode-usage.mp4)
+
 ## Development
 
 Just run the script with `./exe/markdown-run`
