@@ -13,6 +13,32 @@
 - Run specs `markdown-run`
 - Run on a markdown file `markdown-run your-filename`
 
+example vscode keybinding
+
+```json
+  {
+    "key": "ctrl+shift+b",
+    "command": "runCommands",
+    "args": {
+      "commands": [
+        {
+          "command": "workbench.action.files.save"
+        },
+        {
+          "command": "workbench.action.terminal.sendSequence",
+          "args": {
+            "text": "markdown-run \"${file}\"\n"
+          }
+        },
+        {
+          "command": "workbench.action.files.revert"
+        }
+      ]
+    },
+    "when": "editorTextFocus && editorLangId == 'markdown'"
+  },
+```
+
 ## Demo
 
 ![VSCode Usage](docs/markdown-run-vscode.gif)

@@ -52,4 +52,3 @@ Page cache spills:                   0
 Schema Heap Usage:                   0 bytes
 Statement Heap/Lookaside Usage:      0 bytes
 ```
-
