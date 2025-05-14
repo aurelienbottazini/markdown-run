@@ -1,7 +1,8 @@
 PATH
   remote: .
   specs:
-    markdown-run (0.1.0)
+    markdown-run (0.1.1)
+      rcodetools
 
 GEM
   remote: https://rubygems.org/
@@ -37,6 +38,7 @@ GEM
     rack (3.1.7)
     rainbow (3.1.1)
     rake (13.2.1)
+    rcodetools (0.8.5.0)
     regexp_parser (2.9.2)
     rubocop (1.66.1)
       json (~> 2.3)
