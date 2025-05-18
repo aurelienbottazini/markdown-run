@@ -12,6 +12,22 @@ p "foo"
 # >> "foo"
 ```
 
+```bash
+date
+```
+
+```RESULT
+Sun May 18 15:05:35 CEST 2025
+```
+
+```zsh
+date
+```
+
+```RESULT
+Sun May 18 15:05:13 CEST 2025
+```
+
 ```js
 1 + 2;
 console.log(3);

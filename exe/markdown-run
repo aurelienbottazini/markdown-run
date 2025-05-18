@@ -50,7 +50,27 @@ SUPPORTED_LANGUAGES = {
   "js" => JS_CONFIG,
   "javascript" => JS_CONFIG, # Alias for js
   "sqlite" => SQLITE_CONFIG,
-  "sqlite3" => SQLITE_CONFIG # Alias for sqlite
+  "sqlite3" => SQLITE_CONFIG, # Alias for sqlite
+  "bash" => {
+    command: ->(_code_content, temp_file_path) {
+      bash_exists = system("command -v bash > /dev/null 2>&1")
+      unless bash_exists
+        abort "Error: bash command not found. Please ensure bash is in your PATH."
+      end
+      [ "bash #{temp_file_path}", {} ]
+    },
+    temp_file_suffix: ".sh"
+  },
+  "zsh" => {
+    command: ->(_code_content, temp_file_path) {
+      zsh_exists = system("command -v zsh > /dev/null 2>&1")
+      unless zsh_exists
+        abort "Error: zsh command not found. Please ensure zsh is in your PATH."
+      end
+      [ "zsh #{temp_file_path}", {} ]
+    },
+    temp_file_suffix: ".zsh"
+  }
 }.freeze
 
 LANGUAGE_REGEX_PART = SUPPORTED_LANGUAGES.keys.map { |lang| Regexp.escape(lang) }.join("|").freeze
