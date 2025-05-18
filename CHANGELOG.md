@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [0.1.4] - 2025-05-18
+
+- Add support for zsh, bash, sh
+
 ## [0.1.3] - 2025-05-14
 
 - Fix missing minitest dep
