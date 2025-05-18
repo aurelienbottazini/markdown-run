@@ -3,7 +3,6 @@
 require "tempfile"
 require "open3"
 require "fileutils"
-require "minitest/spec"
 
 # --- Language Execution Configuration ---
 JS_CONFIG = {
@@ -86,18 +85,6 @@ SUPPORTED_LANGUAGES = {
 LANGUAGE_REGEX_PART = SUPPORTED_LANGUAGES.keys.map { |lang| Regexp.escape(lang) }.join("|").freeze
 CODE_BLOCK_START_REGEX = /^```(#{LANGUAGE_REGEX_PART})$/i
 # --- End Language Execution Configuration ---
-
-if ARGV.empty?
-  require "bundler/inline"
-  gemfile(true) do
-    source "https://rubygems.org"
-    gem "minitest", "5.25.5" # Specify the required version
-    gem "rcodetools"
-  end
-
-  puts "Running tests..."
-  require "minitest/autorun"
-end
 
 # Script to process markdown files, execute code blocks based on language,
 # and insert their results back into the markdown.
@@ -318,6 +305,19 @@ def process_markdown_file_main(input_file_path)
   true # Indicate success
 end
 
+if ARGV.empty?
+
+ require "minitest/spec"
+  require "bundler/inline"
+  gemfile(true) do
+    source "https://rubygems.org"
+    gem "minitest", "5.25.5" # Specify the required version
+    gem "rcodetools"
+  end
+
+  puts "Running tests..."
+  require "minitest/autorun"
+
 # --- Minitest Test Class Definition ---
 class TestMarkdownExec < Minitest::Test
   def setup
@@ -414,6 +414,7 @@ class TestMarkdownExec < Minitest::Test
 
     assert_equal original_content.strip, read_md_file.strip, "Should not execute if ```ruby RESULT block exists"
   end
+end
 end
 
 process_markdown_file_main(ARGV[0]) unless ARGV.empty?
