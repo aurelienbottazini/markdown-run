@@ -28,6 +28,14 @@ date
 Sun May 18 15:05:13 CEST 2025
 ```
 
+```sh
+date
+```
+
+```RESULT
+Sun May 18 15:07:05 CEST 2025
+```
+
 ```js
 1 + 2;
 console.log(3);

@@ -70,6 +70,16 @@ SUPPORTED_LANGUAGES = {
       [ "zsh #{temp_file_path}", {} ]
     },
     temp_file_suffix: ".zsh"
+  },
+  "sh" => {
+    command: ->(_code_content, temp_file_path) {
+      sh_exists = system("command -v sh > /dev/null 2>&1")
+      unless sh_exists
+        abort "Error: sh command not found. Please ensure sh is in your PATH."
+      end
+      [ "sh #{temp_file_path}", {} ]
+    },
+    temp_file_suffix: ".sh"
   }
 }.freeze
 
