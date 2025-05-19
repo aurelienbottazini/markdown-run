@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [0.1.5] - 2025-05-19
+
+- Remove gif files from release
+
 ## [0.1.4] - 2025-05-18
 
 - Add support for zsh, bash, sh
