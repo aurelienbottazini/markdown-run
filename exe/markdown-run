@@ -48,6 +48,7 @@ SUPPORTED_LANGUAGES = {
   },
   "js" => JS_CONFIG,
   "javascript" => JS_CONFIG, # Alias for js
+  "sql" => SQLITE_CONFIG,
   "sqlite" => SQLITE_CONFIG,
   "sqlite3" => SQLITE_CONFIG, # Alias for sqlite
   "bash" => {
