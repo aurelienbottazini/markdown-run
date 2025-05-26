@@ -1,3 +1,10 @@
+require "bundler/inline"
+gemfile(true) do
+  source "https://rubygems.org"
+  gem "minitest", "5.25.5" # Specify the required version
+  gem "rcodetools"
+end
+
 require "minitest/test"
 require "minitest/autorun"
 require "fileutils"

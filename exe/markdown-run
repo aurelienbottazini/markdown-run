@@ -306,15 +306,9 @@ def process_markdown_file_main(input_file_path)
 end
 
 if ARGV.empty?
-  require "bundler/inline"
-  gemfile(true) do
-    source "https://rubygems.org"
-    gem "minitest", "5.25.5" # Specify the required version
-    gem "rcodetools"
-  end
-
   puts "Running tests..."
   require_relative "../test_markdown_exec"
+else
+  process_markdown_file_main(ARGV[0])
 end
 
-process_markdown_file_main(ARGV[0]) unless ARGV.empty?
