@@ -8,6 +8,31 @@ require_relative "../lib/language_configs"
 # Script to process markdown files, execute code blocks based on language,
 # and insert their results back into the markdown.
 
+def format_captured_output(captured_status_obj, captured_stderr, captured_stdout, lang_config)
+  result_output = captured_stdout
+  stderr_output = captured_stderr
+  exit_status = captured_status_obj.exitstatus
+
+  # JS-specific: Append stderr to result if execution failed and stderr has content
+  if lang_config && lang_config[:error_handling] == :js_specific && exit_status != 0 && stderr_output && !stderr_output.strip.empty?
+    result_output += "\nStderr:\n#{stderr_output.strip}" # Ensure stripping
+  end
+  return exit_status, result_output, stderr_output
+end
+
+def add_error_to_output(exit_status, lang_config, lang_key, result_output, stderr_output)
+  warn "Code execution failed for language '#{lang_key}' with status #{exit_status}."
+  warn "Stderr:\n#{stderr_output}" if stderr_output && !stderr_output.strip.empty?
+
+  is_js_error_already_formatted = lang_config && lang_config[:error_handling] == :js_specific && result_output.include?("Stderr:")
+  unless result_output.downcase.include?("error:") || is_js_error_already_formatted
+    error_prefix = "Execution failed (status: #{exit_status})."
+    error_prefix += " Stderr: #{stderr_output.strip}" if stderr_output && !stderr_output.strip.empty?
+    result_output = "#{error_prefix}\n#{result_output}"
+  end
+  result_output
+end
+
 def execute_code_block(code_content, lang, temp_dir)
   result_output = ""
   stderr_output = ""
@@ -48,29 +73,12 @@ def execute_code_block(code_content, lang, temp_dir)
     # captured_status_obj remains nil, so common assignments below won't run
   end
 
-  # Common assignment logic for cases that used Open3.capture3
   if captured_status_obj
-    result_output = captured_stdout
-    stderr_output = captured_stderr
-    exit_status = captured_status_obj.exitstatus
-
-    # JS-specific: Append stderr to result if execution failed and stderr has content
-    if lang_config && lang_config[:error_handling] == :js_specific && exit_status != 0 && stderr_output && !stderr_output.strip.empty?
-      result_output += "\nStderr:\n#{stderr_output.strip}" # Ensure stripping
-    end
+    exit_status, result_output, stderr_output = format_captured_output(captured_status_obj, captured_stderr, captured_stdout, lang_config)
   end
 
-  # Common error message enhancement
   if exit_status != 0
-    warn "Code execution failed for language '#{lang_key}' with status #{exit_status}."
-    warn "Stderr:\n#{stderr_output}" if stderr_output && !stderr_output.strip.empty?
-
-    is_js_error_already_formatted = lang_config && lang_config[:error_handling] == :js_specific && result_output.include?("Stderr:")
-    unless result_output.downcase.include?("error:") || is_js_error_already_formatted
-      error_prefix = "Execution failed (status: #{exit_status})."
-      error_prefix += " Stderr: #{stderr_output.strip}" if stderr_output && !stderr_output.strip.empty?
-      result_output = "#{error_prefix}\n#{result_output}"
-    end
+    result_output = add_error_to_output(exit_status, lang_config, lang_key, result_output, stderr_output)
   end
   result_output
 end
