@@ -3,6 +3,7 @@
 require "tempfile"
 require "open3"
 require "fileutils"
+require "yaml"
 require_relative "../lib/language_configs"
 
 # Script to process markdown files, execute code blocks based on language,
@@ -83,13 +84,16 @@ class MarkdownProcessor
     @state = :outside_code_block
     @current_block_lang = ""
     @current_code_content = ""
+    @aliases = {}
   end
 
   def process_file(file_enum)
+    parse_frontmatter(file_enum)
+    
     loop do
       current_line = get_next_line(file_enum)
       break unless current_line
-      
+
       handle_line(current_line, file_enum)
     end
     @output_lines
@@ -97,10 +101,69 @@ class MarkdownProcessor
 
   private
 
-  def get_next_line(file_enum)
-    file_enum.next
+  def parse_frontmatter(file_enum)
+    first_line = peek_next_line(file_enum)
+    return unless first_line&.strip == "---"
+    
+    # Consume the opening ---
+    @output_lines << file_enum.next
+    frontmatter_lines = []
+    
+    loop do
+      line = get_next_line(file_enum)
+      break unless line
+      
+      if line.strip == "---"
+        @output_lines << line
+        break
+      end
+      
+      frontmatter_lines << line
+      @output_lines << line
+    end
+    
+    return if frontmatter_lines.empty?
+    
+    begin
+      frontmatter = YAML.safe_load(frontmatter_lines.join)
+      extract_aliases(frontmatter) if frontmatter.is_a?(Hash)
+    rescue YAML::SyntaxError => e
+      warn "Warning: Invalid YAML frontmatter: #{e.message}"
+    end
+  end
+
+  def extract_aliases(frontmatter)
+    markdown_run_config = frontmatter["markdown-run"]
+    return unless markdown_run_config.is_a?(Hash)
+    
+    aliases = markdown_run_config["alias"]
+    return unless aliases.is_a?(Array)
+    
+    aliases.each do |alias_config|
+      next unless alias_config.is_a?(Hash)
+      
+      alias_config.each do |alias_name, target_lang|
+        @aliases[alias_name.to_s] = target_lang.to_s
+      end
+    end
+  end
+
+  def resolve_language(lang)
+    @aliases[lang] || lang
+  end
+
+  def safe_enum_operation(file_enum, operation)
+    file_enum.send(operation)
   rescue StopIteration
     nil
+  end
+
+  def get_next_line(file_enum)
+    safe_enum_operation(file_enum, :next)
+  end
+
+  def peek_next_line(file_enum)
+    safe_enum_operation(file_enum, :peek)
   end
 
   def handle_line(current_line, file_enum)
@@ -117,8 +180,14 @@ class MarkdownProcessor
   def handle_outside_code_block(current_line, file_enum)
     if current_line.match?(/^```ruby\s+RESULT$/i)
       handle_existing_ruby_result_block(current_line, file_enum)
-    elsif (match_data = current_line.match(CODE_BLOCK_START_REGEX))
-      start_code_block(current_line, match_data)
+    elsif (match_data = current_line.match(/^```(\w+)$/i))
+      lang = match_data[1].downcase
+      resolved_lang = resolve_language(lang)
+      if SUPPORTED_LANGUAGES.key?(resolved_lang)
+        start_code_block(current_line, lang)
+      else
+        @output_lines << current_line
+      end
     else
       @output_lines << current_line
     end
@@ -145,9 +214,9 @@ class MarkdownProcessor
     @state = :inside_result_block
   end
 
-  def start_code_block(current_line, match_data)
+  def start_code_block(current_line, lang)
     @output_lines << current_line
-    @current_block_lang = match_data[1].downcase
+    @current_block_lang = resolve_language(lang)
     @state = :inside_code_block
     @current_code_content = ""
   end
@@ -159,15 +228,15 @@ class MarkdownProcessor
 
   def end_code_block(current_line, file_enum)
     @output_lines << current_line
-    
+
     decision = decide_execution(file_enum)
-    
+
     if decision[:execute]
       execute_and_add_result(decision[:blank_line])
     else
       skip_and_pass_through_result(decision[:lines_to_pass_through], file_enum)
     end
-    
+
     reset_code_block_state
   end
 
@@ -182,7 +251,7 @@ class MarkdownProcessor
     elsif peek1 && peek1.strip == ""
       consumed_blank_line = file_enum.next
       peek2 = peek_next_line(file_enum)
-      
+
       if peek2 && peek2.match?(expected_header_regex)
         return { execute: false, lines_to_pass_through: [consumed_blank_line, file_enum.next] }
       else
@@ -193,22 +262,16 @@ class MarkdownProcessor
     end
   end
 
-  def peek_next_line(file_enum)
-    file_enum.peek
-  rescue StopIteration
-    nil
-  end
-
   def execute_and_add_result(blank_line_before_new_result)
     @output_lines << blank_line_before_new_result if blank_line_before_new_result
-    
+
     if !@current_code_content.strip.empty?
       warn "Executing #{@current_block_lang} code block..."
       result_output = execute_code_block(@current_code_content, @current_block_lang, @temp_dir)
-      
+
       current_lang_config = SUPPORTED_LANGUAGES[@current_block_lang]
       is_ruby_style_result = current_lang_config && current_lang_config[:result_block_type] == "ruby"
-      
+
       @output_lines << "\n" if blank_line_before_new_result.nil?
       @output_lines << (is_ruby_style_result ? "```ruby RESULT\n" : "```RESULT\n")
       @output_lines << result_output
@@ -223,11 +286,11 @@ class MarkdownProcessor
     current_lang_config = SUPPORTED_LANGUAGES[@current_block_lang]
     is_ruby_style_result = current_lang_config && current_lang_config[:result_block_type] == "ruby"
     lang_specific_result_type = is_ruby_style_result ? "```ruby RESULT" : "```RESULT"
-    
+
     warn "Found existing '#{lang_specific_result_type}' block for current #{@current_block_lang} block, skipping execution."
-    
+
     @output_lines.concat(lines_to_pass_through)
-    
+
     consume_result_block_content(file_enum)
   end
 
@@ -257,7 +320,7 @@ def process_markdown_file_main(input_file_path)
 
   temp_dir = File.dirname(File.expand_path(input_file_path))
   file_enum = File.foreach(input_file_path, chomp: false).to_enum
-  
+
   processor = MarkdownProcessor.new(temp_dir)
   output_lines = processor.process_file(file_enum)
 

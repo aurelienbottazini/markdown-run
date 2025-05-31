@@ -106,4 +106,29 @@ class TestMarkdownExec < Minitest::Test
 
     assert_equal original_content.strip, read_md_file.strip, "Should not execute if ```ruby RESULT block exists"
   end
+
+  def test_frontmatter_alias_functionality
+    skip "Skipping test_frontmatter_alias_functionality on GitHub CI" if ENV['CI']
+
+    md_content = <<~MARKDOWN
+      ---
+      markdown-run:
+        alias:
+          - sql: psql
+      ---
+
+      # Test Document
+
+      ```sql
+      SELECT 'aliased to psql' as test;
+      ```
+    MARKDOWN
+    create_md_file(md_content)
+    process_markdown_file_main(@test_md_file_path)
+
+    file_content = read_md_file
+    assert file_content.include?("```sql\nSELECT 'aliased to psql' as test;"), "Original SQL code should be present"
+    assert file_content.include?("```RESULT\n"), "RESULT block should be created for aliased language"
+    assert file_content.include?("aliased to psql"), "Output should contain the expected result"
+  end
 end
