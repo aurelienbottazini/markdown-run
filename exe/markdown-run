@@ -185,6 +185,14 @@ class MarkdownProcessor
     @output_lines << "```\n\n"
   end
 
+  def line_matches_pattern?(line, pattern)
+    line && line.match?(pattern)
+  end
+
+  def is_blank_line?(line)
+    line && line.strip == ""
+  end
+
   def safe_enum_operation(file_enum, operation)
     file_enum.send(operation)
   rescue StopIteration
@@ -277,13 +285,13 @@ class MarkdownProcessor
     peek1 = peek_next_line(file_enum)
     expected_header_regex = result_block_regex(@current_block_lang)
 
-    if peek1 && peek1.match?(expected_header_regex)
+    if line_matches_pattern?(peek1, expected_header_regex)
       return { execute: false, lines_to_pass_through: [file_enum.next] }
-    elsif peek1 && peek1.strip == ""
+    elsif is_blank_line?(peek1)
       consumed_blank_line = file_enum.next
       peek2 = peek_next_line(file_enum)
 
-      if peek2 && peek2.match?(expected_header_regex)
+      if line_matches_pattern?(peek2, expected_header_regex)
         return { execute: false, lines_to_pass_through: [consumed_blank_line, file_enum.next] }
       else
         return { execute: true, blank_line: consumed_blank_line }
