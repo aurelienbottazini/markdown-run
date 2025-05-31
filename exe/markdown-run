@@ -76,6 +76,179 @@ def execute_code_block(code_content, lang, temp_dir)
   result_output
 end
 
+class MarkdownProcessor
+  def initialize(temp_dir)
+    @temp_dir = temp_dir
+    @output_lines = []
+    @state = :outside_code_block
+    @current_block_lang = ""
+    @current_code_content = ""
+  end
+
+  def process_file(file_enum)
+    loop do
+      current_line = get_next_line(file_enum)
+      break unless current_line
+      
+      handle_line(current_line, file_enum)
+    end
+    @output_lines
+  end
+
+  private
+
+  def get_next_line(file_enum)
+    file_enum.next
+  rescue StopIteration
+    nil
+  end
+
+  def handle_line(current_line, file_enum)
+    case @state
+    when :outside_code_block
+      handle_outside_code_block(current_line, file_enum)
+    when :inside_code_block
+      handle_inside_code_block(current_line, file_enum)
+    when :inside_result_block
+      handle_inside_result_block(current_line, file_enum)
+    end
+  end
+
+  def handle_outside_code_block(current_line, file_enum)
+    if current_line.match?(/^```ruby\s+RESULT$/i)
+      handle_existing_ruby_result_block(current_line, file_enum)
+    elsif (match_data = current_line.match(CODE_BLOCK_START_REGEX))
+      start_code_block(current_line, match_data)
+    else
+      @output_lines << current_line
+    end
+  end
+
+  def handle_inside_code_block(current_line, file_enum)
+    if current_line.strip == "```"
+      end_code_block(current_line, file_enum)
+    else
+      accumulate_code_content(current_line)
+    end
+  end
+
+  def handle_inside_result_block(current_line, file_enum)
+    @output_lines << current_line
+    if current_line.strip == "```"
+      @state = :outside_code_block
+    end
+  end
+
+  def handle_existing_ruby_result_block(current_line, file_enum)
+    warn "Found existing '```ruby RESULT' block, passing through."
+    @output_lines << current_line
+    @state = :inside_result_block
+  end
+
+  def start_code_block(current_line, match_data)
+    @output_lines << current_line
+    @current_block_lang = match_data[1].downcase
+    @state = :inside_code_block
+    @current_code_content = ""
+  end
+
+  def accumulate_code_content(current_line)
+    @current_code_content += current_line
+    @output_lines << current_line
+  end
+
+  def end_code_block(current_line, file_enum)
+    @output_lines << current_line
+    
+    decision = decide_execution(file_enum)
+    
+    if decision[:execute]
+      execute_and_add_result(decision[:blank_line])
+    else
+      skip_and_pass_through_result(decision[:lines_to_pass_through], file_enum)
+    end
+    
+    reset_code_block_state
+  end
+
+  def decide_execution(file_enum)
+    peek1 = peek_next_line(file_enum)
+    current_lang_config = SUPPORTED_LANGUAGES[@current_block_lang]
+    is_ruby_style_result = current_lang_config && current_lang_config[:result_block_type] == "ruby"
+    expected_header_regex = is_ruby_style_result ? /^```ruby\s+RESULT$/i : /^```RESULT$/i
+
+    if peek1 && peek1.match?(expected_header_regex)
+      return { execute: false, lines_to_pass_through: [file_enum.next] }
+    elsif peek1 && peek1.strip == ""
+      consumed_blank_line = file_enum.next
+      peek2 = peek_next_line(file_enum)
+      
+      if peek2 && peek2.match?(expected_header_regex)
+        return { execute: false, lines_to_pass_through: [consumed_blank_line, file_enum.next] }
+      else
+        return { execute: true, blank_line: consumed_blank_line }
+      end
+    else
+      return { execute: true }
+    end
+  end
+
+  def peek_next_line(file_enum)
+    file_enum.peek
+  rescue StopIteration
+    nil
+  end
+
+  def execute_and_add_result(blank_line_before_new_result)
+    @output_lines << blank_line_before_new_result if blank_line_before_new_result
+    
+    if !@current_code_content.strip.empty?
+      warn "Executing #{@current_block_lang} code block..."
+      result_output = execute_code_block(@current_code_content, @current_block_lang, @temp_dir)
+      
+      current_lang_config = SUPPORTED_LANGUAGES[@current_block_lang]
+      is_ruby_style_result = current_lang_config && current_lang_config[:result_block_type] == "ruby"
+      
+      @output_lines << "\n" if blank_line_before_new_result.nil?
+      @output_lines << (is_ruby_style_result ? "```ruby RESULT\n" : "```RESULT\n")
+      @output_lines << result_output
+      @output_lines << "\n" unless result_output.empty? || result_output.end_with?("\n")
+      @output_lines << "```\n\n"
+    else
+      warn "Skipping empty code block for language '#{@current_block_lang}'."
+    end
+  end
+
+  def skip_and_pass_through_result(lines_to_pass_through, file_enum)
+    current_lang_config = SUPPORTED_LANGUAGES[@current_block_lang]
+    is_ruby_style_result = current_lang_config && current_lang_config[:result_block_type] == "ruby"
+    lang_specific_result_type = is_ruby_style_result ? "```ruby RESULT" : "```RESULT"
+    
+    warn "Found existing '#{lang_specific_result_type}' block for current #{@current_block_lang} block, skipping execution."
+    
+    @output_lines.concat(lines_to_pass_through)
+    
+    consume_result_block_content(file_enum)
+  end
+
+  def consume_result_block_content(file_enum)
+    begin
+      loop do
+        result_block_line = file_enum.next
+        @output_lines << result_block_line
+        break if result_block_line.strip == "```"
+      end
+    rescue StopIteration
+      warn "Warning: End of file reached inside a skipped 'RESULT' block."
+    end
+  end
+
+  def reset_code_block_state
+    @state = :outside_code_block
+    @current_code_content = ""
+  end
+end
+
 def process_markdown_file_main(input_file_path)
   unless File.exist?(input_file_path) && File.readable?(input_file_path)
     warn "Error: Input file '#{input_file_path}' not found or not readable."
@@ -83,131 +256,10 @@ def process_markdown_file_main(input_file_path)
   end
 
   temp_dir = File.dirname(File.expand_path(input_file_path))
-  output_lines = []
   file_enum = File.foreach(input_file_path, chomp: false).to_enum
-
-  in_code_block = false
-  current_block_lang = ""
-  current_code_content = ""
-
-  loop do
-    current_line = nil
-    begin
-      current_line = file_enum.next
-    rescue StopIteration
-      break # End of file
-    end
-
-    if !in_code_block
-      # Case 1: A ```ruby RESULT block encountered directly
-      if current_line.match?(/^```ruby\s+RESULT$/i)
-        warn "Found existing '```ruby RESULT' block, passing through."
-        output_lines << current_line # The ```ruby RESULT line
-        begin
-          loop do
-            block_line = file_enum.next
-            output_lines << block_line
-            break if block_line.strip == "```"
-          end
-        rescue StopIteration
-          warn "Warning: End of file reached inside a '```ruby RESULT' block."
-          break # Exit main loop, as the file is malformed or ended abruptly
-        end
-        next # Continue to the next line from the file
-      # Case 2: Start of a new executable code block ```lang
-      elsif (match_data = current_line.match(CODE_BLOCK_START_REGEX))
-        output_lines << current_line # The opening ```lang line
-        current_block_lang = match_data[1].downcase
-        in_code_block = true
-        current_code_content = "" # Reset for the new block
-        next # Continue to the next line from the file
-      # Case 3: Any other line (normal text, non-executable ```foo, or generic ```RESULT not after an exec block)
-      else
-        output_lines << current_line
-        next # Continue to the next line from the file
-      end
-    elsif current_line.strip == "```" # We are in_code_block (current_block_lang is set, current_code_content is accumulating)
-      # Case 4: End of the current code block (```)
-      output_lines << current_line # The closing ``` of the code block
-
-      execute_this_block = true # Assume execution by default
-      lines_to_pass_through_if_skipped = [] # For blank line + RESULT header if skipping
-      blank_line_before_new_result = nil # If a blank line is consumed but block is still executed
-
-      # Peek ahead logic
-      peek1 = nil
-      begin; peek1 = file_enum.peek; rescue StopIteration; end # If EOF, execute_this_block remains true
-
-      current_lang_config = SUPPORTED_LANGUAGES[current_block_lang] # Get config for the current block
-      is_ruby_style_result = current_lang_config && current_lang_config[:result_block_type] == "ruby"
-
-      expected_header_regex = is_ruby_style_result ? /^```ruby\s+RESULT$/i : /^```RESULT$/i
-
-      if peek1 && peek1.match?(expected_header_regex)
-        execute_this_block = false
-        lines_to_pass_through_if_skipped << file_enum.next # Consume RESULT header
-      elsif peek1 && peek1.strip == "" # Blank line detected
-        consumed_blank_line = file_enum.next # Consume the blank line from enum
-
-        peek2 = nil
-        begin; peek2 = file_enum.peek; rescue StopIteration; end # EOF after blank line
-
-        if peek2 && peek2.match?(expected_header_regex)
-          execute_this_block = false
-          lines_to_pass_through_if_skipped << consumed_blank_line # Add consumed blank line
-          lines_to_pass_through_if_skipped << file_enum.next # Consume RESULT header
-        else
-          # Blank line, but not followed by a RESULT header (or EOF after blank).
-          # We will execute the block. The consumed_blank_line should be outputted.
-          blank_line_before_new_result = consumed_blank_line
-          # execute_this_block remains true
-        end
-      end
-      # If peek1 was nil (EOF) or something else not matching, execute_this_block remains true.
-
-      if execute_this_block
-        output_lines << blank_line_before_new_result if blank_line_before_new_result
-        if !current_code_content.strip.empty?
-          warn "Executing #{current_block_lang} code block..."
-          result_output = execute_code_block(current_code_content, current_block_lang, temp_dir)
-
-          output_lines << "\n" if blank_line_before_new_result.nil?
-          output_lines << (is_ruby_style_result ? "```ruby RESULT\n" : "```RESULT\n")
-          output_lines << result_output
-          output_lines << "\n" unless result_output.empty? || result_output.end_with?("\n")
-          output_lines << "```\n\n" # Ensures a blank line after the RESULT block
-        else
-          warn "Skipping empty code block for language '#{current_block_lang}'."
-        end
-      else # Do not execute; a RESULT block follows and was identified
-        lang_specific_result_type = is_ruby_style_result ? "```ruby RESULT" : "```RESULT"
-        warn "Found existing '#{lang_specific_result_type}' block for current #{current_block_lang} block, skipping execution."
-
-        output_lines.concat(lines_to_pass_through_if_skipped) # Add blank line (if any) and RESULT header
-
-        # Consume the rest of the RESULT block content until its closing ```
-        begin
-          loop do
-            result_block_line = file_enum.next
-            output_lines << result_block_line
-            break if result_block_line.strip == "```"
-          end
-        rescue StopIteration
-          warn "Warning: End of file reached inside a skipped 'RESULT' block."
-          break # Exit main loop
-        end
-      end
-
-      in_code_block = false
-      current_code_content = "" # Reset for next block
-      next
-      # Case 5: Line inside an active code block
-    else
-      current_code_content += current_line
-      output_lines << current_line # This line is part of the original code block being recorded
-      next # Continue to the next line from the file
-    end
-  end # loop
+  
+  processor = MarkdownProcessor.new(temp_dir)
+  output_lines = processor.process_file(file_enum)
 
   # Write the modified content back to the input file
   Tempfile.create([ "md_exec_out_", File.extname(input_file_path) ], temp_dir) do |temp_output_file|
