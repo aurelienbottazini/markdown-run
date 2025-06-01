@@ -9,6 +9,7 @@ GEM
   remote: https://rubygems.org/
   specs:
     minitest (5.25.5)
+    rake (13.3.0)
     rcodetools (0.8.5.0)
 
 PLATFORMS
@@ -17,6 +18,7 @@ PLATFORMS
 
 DEPENDENCIES
   markdown-run!
+  rake
 
 BUNDLED WITH
    2.5.15
