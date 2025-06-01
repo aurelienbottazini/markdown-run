@@ -8,6 +8,15 @@ Do not rerun code blocks if result block is present.
 
 Meant to be used from the terminal or from an editor with a keybinding.
 
+Supported languages:
+
+- Javascript
+- Ruby
+- sqlite3
+- postgresql
+- bash
+- zsh
+
 ## Installation
 
 `gem install markdown-run`
