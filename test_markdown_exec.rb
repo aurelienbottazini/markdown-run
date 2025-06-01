@@ -131,4 +131,74 @@ class TestMarkdownExec < Minitest::Test
     assert file_content.include?("```RESULT\n"), "RESULT block should be created for aliased language"
     assert file_content.include?("aliased to psql"), "Output should contain the expected result"
   end
+
+  def test_rerun_functionality
+    # Test 1: Default behavior (no rerun option) should skip existing result
+    md_content_with_result = <<~MARKDOWN
+      ```ruby
+      puts "Should not change: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      Should not change: 999999999
+      ```
+    MARKDOWN
+    create_md_file(md_content_with_result)
+    process_markdown_file_main(@test_md_file_path)
+
+    file_content = read_md_file
+    assert file_content.include?("Should not change: 999999999"), "Default behavior should preserve existing result"
+    refute file_content.match?(/Should not change: (?!999999999)\d+/), "Default behavior should not generate new timestamp"
+
+    # Test 2: rerun=false should skip existing result
+    md_content_rerun_false = <<~MARKDOWN
+      ```ruby rerun=false
+      puts "Should not change either: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      Should not change either: 888888888
+      ```
+    MARKDOWN
+    create_md_file(md_content_rerun_false)
+    process_markdown_file_main(@test_md_file_path)
+
+    file_content = read_md_file
+    assert file_content.include?("Should not change either: 888888888"), "rerun=false should preserve existing result"
+    refute file_content.match?(/Should not change either: (?!888888888)\d+/), "rerun=false should not generate new timestamp"
+
+    # Test 3: rerun=true should replace existing result
+    md_content_rerun_true = <<~MARKDOWN
+      ```ruby rerun=true
+      puts "Should change: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      Should change: 777777777
+      ```
+    MARKDOWN
+    create_md_file(md_content_rerun_true)
+    process_markdown_file_main(@test_md_file_path)
+
+    file_content = read_md_file
+    refute file_content.include?("Should change: 777777777"), "rerun=true should replace existing result"
+    assert file_content.match?(/Should change: \d+/), "rerun=true should generate new result with actual timestamp"
+
+    # Test 4: rerun=true with blank line before result block
+    md_content_rerun_true_blank = <<~MARKDOWN
+      ```ruby rerun=true
+      puts "Should also change: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      Should also change: 666666666
+      ```
+    MARKDOWN
+    create_md_file(md_content_rerun_true_blank)
+    process_markdown_file_main(@test_md_file_path)
+
+    file_content = read_md_file
+    refute file_content.include?("Should also change: 666666666"), "rerun=true with blank line should replace existing result"
+    assert file_content.match?(/Should also change: \d+/), "rerun=true with blank line should generate new result"
+  end
 end
