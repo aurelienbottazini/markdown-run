@@ -1,7 +1,6 @@
-require "tempfile"
-require "fileutils"
 require_relative "language_configs"
 require_relative "markdown_processor"
+require_relative "markdown_file_writer"
 
 module MarkdownRun
   def self.process_markdown_file_main(input_file_path)
@@ -17,18 +16,6 @@ module MarkdownRun
     output_lines = processor.process_file(file_enum)
 
     # Write the modified content back to the input file
-    Tempfile.create([ "md_exec_out_", File.extname(input_file_path) ], temp_dir) do |temp_output_file|
-      temp_output_file.write(output_lines.join(""))
-      temp_output_file.close
-      begin
-        FileUtils.mv(temp_output_file.path, input_file_path)
-      rescue Errno::EACCES, Errno::EXDEV
-        warn "Atomic move failed. Falling back to copy and delete."
-        FileUtils.cp(temp_output_file.path, input_file_path)
-        FileUtils.rm_f(temp_output_file.path)
-      end
-    end
-    warn "Markdown processing complete. Output written to #{input_file_path}"
-    true # Indicate success
+    MarkdownFileWriter.write_output_to_file(output_lines, input_file_path)
   end
 end
