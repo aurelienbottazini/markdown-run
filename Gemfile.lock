@@ -2,8 +2,7 @@ PATH
   remote: .
   specs:
     markdown-run (0.1.8)
-      minitest (= 5.25.5)
-      rcodetools
+      rcodetools (= 0.8.5)
 
 GEM
   remote: https://rubygems.org/
@@ -18,6 +17,7 @@ PLATFORMS
 
 DEPENDENCIES
   markdown-run!
+  minitest (= 5.25.5)
   rake
 
 BUNDLED WITH

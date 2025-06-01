@@ -1,4 +1,3 @@
-require "minitest/test"
 require "minitest/autorun"
 require "fileutils"
 require "tmpdir"
