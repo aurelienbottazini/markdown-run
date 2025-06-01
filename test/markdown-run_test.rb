@@ -28,7 +28,7 @@ class TestMarkdownRun < Minitest::Test
 
   def test_script_runs_without_error_on_empty_file
     create_md_file("")
-    assert MarkdownRun.process_markdown_file_main(@test_md_file_path), "Processing empty file should succeed"
+    assert MarkdownRun.run_code_blocks(@test_md_file_path), "Processing empty file should succeed"
     assert_equal "", read_md_file.strip, "Empty file should remain empty after processing"
   end
 
@@ -41,7 +41,7 @@ class TestMarkdownRun < Minitest::Test
       ```
     MARKDOWN
     create_md_file(md_content)
-    MarkdownRun.process_markdown_file_main(@test_md_file_path)
+    MarkdownRun.run_code_blocks(@test_md_file_path)
 
     expected_output = <<~MARKDOWN.strip
       ```psql
@@ -63,7 +63,7 @@ class TestMarkdownRun < Minitest::Test
       ```
     MARKDOWN
     create_md_file(md_content)
-    MarkdownRun.process_markdown_file_main(@test_md_file_path)
+    MarkdownRun.run_code_blocks(@test_md_file_path)
 
     file_content = read_md_file
     assert file_content.include?("```ruby\nputs \"Hello from Ruby\""), "Original Ruby code should be present"
@@ -82,7 +82,7 @@ class TestMarkdownRun < Minitest::Test
       ```
     MARKDOWN
     create_md_file(original_content)
-    MarkdownRun.process_markdown_file_main(@test_md_file_path)
+    MarkdownRun.run_code_blocks(@test_md_file_path)
 
     assert_equal original_content.strip, read_md_file.strip, "Should not execute if RESULT block exists"
   end
@@ -98,7 +98,7 @@ class TestMarkdownRun < Minitest::Test
       ```
     MARKDOWN
     create_md_file(original_content)
-    MarkdownRun.process_markdown_file_main(@test_md_file_path)
+    MarkdownRun.run_code_blocks(@test_md_file_path)
 
     assert_equal original_content.strip, read_md_file.strip, "Should not execute if ```ruby RESULT block exists"
   end
@@ -120,7 +120,7 @@ class TestMarkdownRun < Minitest::Test
       ```
     MARKDOWN
     create_md_file(md_content)
-    MarkdownRun.process_markdown_file_main(@test_md_file_path)
+    MarkdownRun.run_code_blocks(@test_md_file_path)
 
     file_content = read_md_file
     assert file_content.include?("```sql\nSELECT 'aliased to psql' as test;"), "Original SQL code should be present"
@@ -140,7 +140,7 @@ class TestMarkdownRun < Minitest::Test
       ```
     MARKDOWN
     create_md_file(md_content_with_result)
-    MarkdownRun.process_markdown_file_main(@test_md_file_path)
+    MarkdownRun.run_code_blocks(@test_md_file_path)
 
     file_content = read_md_file
     assert file_content.include?("Should not change: 999999999"), "Default behavior should preserve existing result"
@@ -157,7 +157,7 @@ class TestMarkdownRun < Minitest::Test
       ```
     MARKDOWN
     create_md_file(md_content_rerun_false)
-    MarkdownRun.process_markdown_file_main(@test_md_file_path)
+    MarkdownRun.run_code_blocks(@test_md_file_path)
 
     file_content = read_md_file
     assert file_content.include?("Should not change either: 888888888"), "rerun=false should preserve existing result"
@@ -174,7 +174,7 @@ class TestMarkdownRun < Minitest::Test
       ```
     MARKDOWN
     create_md_file(md_content_rerun_true)
-    MarkdownRun.process_markdown_file_main(@test_md_file_path)
+    MarkdownRun.run_code_blocks(@test_md_file_path)
 
     file_content = read_md_file
     refute file_content.include?("Should change: 777777777"), "rerun=true should replace existing result"
@@ -191,7 +191,7 @@ class TestMarkdownRun < Minitest::Test
       ```
     MARKDOWN
     create_md_file(md_content_rerun_true_blank)
-    MarkdownRun.process_markdown_file_main(@test_md_file_path)
+    MarkdownRun.run_code_blocks(@test_md_file_path)
 
     file_content = read_md_file
     refute file_content.include?("Should also change: 666666666"), "rerun=true with blank line should replace existing result"
@@ -206,7 +206,7 @@ class TestMarkdownRun < Minitest::Test
       ```
     MARKDOWN
     create_md_file(md_content_default)
-    MarkdownRun.process_markdown_file_main(@test_md_file_path)
+    MarkdownRun.run_code_blocks(@test_md_file_path)
 
     file_content = read_md_file
     assert file_content.include?("```ruby RESULT"), "Default behavior should create result block"
@@ -219,7 +219,7 @@ class TestMarkdownRun < Minitest::Test
       ```
     MARKDOWN
     create_md_file(md_content_run_true)
-    MarkdownRun.process_markdown_file_main(@test_md_file_path)
+    MarkdownRun.run_code_blocks(@test_md_file_path)
 
     file_content = read_md_file
     assert file_content.include?("```ruby RESULT"), "run=true should create result block"
@@ -233,7 +233,7 @@ class TestMarkdownRun < Minitest::Test
       ```
     MARKDOWN
     create_md_file(md_content_run_false)
-    MarkdownRun.process_markdown_file_main(@test_md_file_path)
+    MarkdownRun.run_code_blocks(@test_md_file_path)
 
     file_content = read_md_file
     refute file_content.include?("```ruby RESULT"), "run=false should not create result block"
@@ -251,7 +251,7 @@ class TestMarkdownRun < Minitest::Test
       ```
     MARKDOWN
     create_md_file(md_content_run_false_with_result)
-    MarkdownRun.process_markdown_file_main(@test_md_file_path)
+    MarkdownRun.run_code_blocks(@test_md_file_path)
 
     file_content = read_md_file
     assert file_content.include?("Old result that should be preserved"), "run=false should preserve existing result"
@@ -268,7 +268,7 @@ class TestMarkdownRun < Minitest::Test
       ```
     MARKDOWN
     create_md_file(md_content_combined)
-    MarkdownRun.process_markdown_file_main(@test_md_file_path)
+    MarkdownRun.run_code_blocks(@test_md_file_path)
 
     file_content = read_md_file
     assert file_content.include?("Existing result"), "run=false should override rerun=true"
@@ -281,7 +281,7 @@ class TestMarkdownRun < Minitest::Test
       ```
     MARKDOWN
     create_md_file(md_content_run_true_rerun_false)
-    MarkdownRun.process_markdown_file_main(@test_md_file_path)
+    MarkdownRun.run_code_blocks(@test_md_file_path)
 
     file_content = read_md_file
     assert file_content.include?("```ruby RESULT"), "run=true rerun=false should execute when no result exists"

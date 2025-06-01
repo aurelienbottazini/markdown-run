@@ -10,7 +10,7 @@ if ARGV.empty?
   puts "Processes a markdown file and executes code blocks, inserting their results."
   exit 1 unless $0 != __FILE__  # Don't exit when loaded as a library
 else
-  success = MarkdownRun.process_markdown_file_main(ARGV[0])
+  success = MarkdownRun.run_code_blocks(ARGV[0])
   exit success ? 0 : 1 unless $0 != __FILE__  # Don't exit when loaded as a library
 end
 

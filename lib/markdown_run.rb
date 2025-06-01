@@ -3,7 +3,7 @@ require_relative "markdown_processor"
 require_relative "markdown_file_writer"
 
 module MarkdownRun
-  def self.process_markdown_file_main(input_file_path)
+  def self.run_code_blocks(input_file_path)
     unless File.exist?(input_file_path) && File.readable?(input_file_path)
       abort "Error: Input file '#{input_file_path}' not found or not readable."
     end
