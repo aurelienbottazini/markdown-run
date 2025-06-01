@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+## [0.1.6] - 2025-06-01
+
+- Refactor code to state pattern
+- Add yaml frontmatter to support aliases for code blocks
+
 ## [0.1.5] - 2025-05-19
 
 - Remove gif files from release

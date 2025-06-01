@@ -43,6 +43,18 @@ example vscode keybinding
   },
 ```
 
+## Frontmatter
+
+You can add a yaml frontmatter to redefine code block behavior.
+For example sql blocks run by default against sqlite
+To have them run with postgres you can add at the top of your markdown file:
+
+```yaml
+markdown-run:
+  alias:
+    - sql: psql
+```
+
 ## Demo
 
 ![VSCode Usage](docs/markdown-run-vscode.gif)
