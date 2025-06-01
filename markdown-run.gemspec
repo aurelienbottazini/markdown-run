@@ -37,7 +37,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency 'rcodetools'
   spec.add_dependency 'minitest', "5.25.5"
-  
+
   spec.add_development_dependency 'rake'
 
   # Uncomment to register a new dependency of your gem

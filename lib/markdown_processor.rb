@@ -1,9 +1,11 @@
 require "tempfile"
 require "open3"
-require "yaml"
 require_relative "language_configs"
+require_relative "frontmatter_parser"
+require_relative "enum_helper"
 
 class MarkdownProcessor
+  include EnumHelper
   def initialize(temp_dir)
     @temp_dir = temp_dir
     @output_lines = []
@@ -12,11 +14,11 @@ class MarkdownProcessor
     @current_code_content = ""
     @current_block_rerun = false
     @current_block_run = true
-    @aliases = {}
+    @frontmatter_parser = FrontmatterParser.new
   end
 
   def process_file(file_enum)
-    parse_frontmatter(file_enum)
+    @frontmatter_parser.parse_frontmatter(file_enum, @output_lines)
 
     loop do
       current_line = get_next_line(file_enum)
@@ -29,55 +31,8 @@ class MarkdownProcessor
 
   private
 
-  def parse_frontmatter(file_enum)
-    first_line = peek_next_line(file_enum)
-    return unless first_line&.strip == "---"
-
-    # Consume the opening ---
-    @output_lines << file_enum.next
-    frontmatter_lines = []
-
-    loop do
-      line = get_next_line(file_enum)
-      break unless line
-
-      if line.strip == "---"
-        @output_lines << line
-        break
-      end
-
-      frontmatter_lines << line
-      @output_lines << line
-    end
-
-    return if frontmatter_lines.empty?
-
-    begin
-      frontmatter = YAML.safe_load(frontmatter_lines.join)
-      extract_aliases(frontmatter) if frontmatter.is_a?(Hash)
-    rescue YAML::SyntaxError => e
-      warn "Warning: Invalid YAML frontmatter: #{e.message}"
-    end
-  end
-
-  def extract_aliases(frontmatter)
-    markdown_run_config = frontmatter["markdown-run"]
-    return unless markdown_run_config.is_a?(Hash)
-
-    aliases = markdown_run_config["alias"]
-    return unless aliases.is_a?(Array)
-
-    aliases.each do |alias_config|
-      next unless alias_config.is_a?(Hash)
-
-      alias_config.each do |alias_name, target_lang|
-        @aliases[alias_name.to_s] = target_lang.to_s
-      end
-    end
-  end
-
   def resolve_language(lang)
-    @aliases[lang] || lang
+    @frontmatter_parser.resolve_language(lang)
   end
 
   def ruby_style_result?(lang)
@@ -118,37 +73,21 @@ class MarkdownProcessor
   end
 
   def parse_rerun_option(options_string)
-    return false unless options_string
-
-    # Match rerun=true or rerun=false
-    match = options_string.match(/rerun\s*=\s*(true|false)/i)
-    return false unless match
-
-    match[1].downcase == "true"
+    parse_boolean_option(options_string, "rerun", false)
   end
 
   def parse_run_option(options_string)
-    return true unless options_string
+    parse_boolean_option(options_string, "run", true)
+  end
 
-    # Match run=true or run=false
-    match = options_string.match(/run\s*=\s*(true|false)/i)
-    return true unless match
+  def parse_boolean_option(options_string, option_name, default_value)
+    return default_value unless options_string
+
+    # Match option=true or option=false
+    match = options_string.match(/#{option_name}\s*=\s*(true|false)/i)
+    return default_value unless match
 
     match[1].downcase == "true"
-  end
-
-  def safe_enum_operation(file_enum, operation)
-    file_enum.send(operation)
-  rescue StopIteration
-    nil
-  end
-
-  def get_next_line(file_enum)
-    safe_enum_operation(file_enum, :next)
-  end
-
-  def peek_next_line(file_enum)
-    safe_enum_operation(file_enum, :peek)
   end
 
   def handle_line(current_line, file_enum)
@@ -297,26 +236,26 @@ class MarkdownProcessor
   end
 
   def consume_result_block_content(file_enum)
-    begin
-      loop do
-        result_block_line = file_enum.next
-        @output_lines << result_block_line
-        break if is_block_end?(result_block_line)
-      end
-    rescue StopIteration
-      warn "Warning: End of file reached inside a skipped 'RESULT' block."
+    consume_block_lines(file_enum) do |line|
+      @output_lines << line
     end
   end
 
   def consume_existing_result_block(file_enum, consumed_lines)
+    consume_block_lines(file_enum) do |line|
+      consumed_lines << line
+    end
+  end
+
+  def consume_block_lines(file_enum)
     begin
       loop do
         result_block_line = file_enum.next
-        consumed_lines << result_block_line
+        yield result_block_line
         break if is_block_end?(result_block_line)
       end
     rescue StopIteration
-      warn "Warning: End of file reached while consuming existing result block for rerun."
+      warn "Warning: End of file reached while consuming result block."
     end
   end
 
