@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [0.1.8] - 2025-06-01
+
+- Added run option
+
 ## [0.1.7] - 2025-06-01
 
 - Added rerun functionality
