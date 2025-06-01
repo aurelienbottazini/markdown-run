@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    markdown-run (0.1.5)
+    markdown-run (0.1.6)
       minitest (= 5.25.5)
       rcodetools
 
