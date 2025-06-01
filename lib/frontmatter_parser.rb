@@ -14,6 +14,17 @@ class FrontmatterParser
     first_line = peek_next_line(file_enum)
     return unless first_line&.strip == "---"
 
+    frontmatter_lines = collect_frontmatter_lines(file_enum, output_lines)
+    process_frontmatter_content(frontmatter_lines) unless frontmatter_lines.empty?
+  end
+
+  def resolve_language(lang)
+    @aliases[lang] || lang
+  end
+
+  private
+
+  def collect_frontmatter_lines(file_enum, output_lines)
     # Consume the opening ---
     output_lines << file_enum.next
     frontmatter_lines = []
@@ -31,8 +42,10 @@ class FrontmatterParser
       output_lines << line
     end
 
-    return if frontmatter_lines.empty?
+    frontmatter_lines
+  end
 
+  def process_frontmatter_content(frontmatter_lines)
     begin
       frontmatter = YAML.safe_load(frontmatter_lines.join)
       extract_aliases(frontmatter) if frontmatter.is_a?(Hash)
@@ -40,12 +53,6 @@ class FrontmatterParser
       warn "Warning: Invalid YAML frontmatter: #{e.message}"
     end
   end
-
-  def resolve_language(lang)
-    @aliases[lang] || lang
-  end
-
-  private
 
   def extract_aliases(frontmatter)
     markdown_run_config = frontmatter["markdown-run"]

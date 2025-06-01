@@ -1,7 +1,8 @@
-require "tempfile"
-require "open3"
 require_relative "language_configs"
 require_relative "frontmatter_parser"
+require_relative "code_block_parser"
+require_relative "code_executor"
+require_relative "execution_decider"
 require_relative "enum_helper"
 
 class MarkdownProcessor
@@ -15,6 +16,7 @@ class MarkdownProcessor
     @current_block_rerun = false
     @current_block_run = true
     @frontmatter_parser = FrontmatterParser.new
+    @code_block_parser = CodeBlockParser.new(@frontmatter_parser)
   end
 
   def process_file(file_enum)
@@ -49,7 +51,7 @@ class MarkdownProcessor
   end
 
   def is_block_end?(line)
-    line.strip == "```"
+    @code_block_parser.is_block_end?(line)
   end
 
   def has_content?(content)
@@ -73,21 +75,11 @@ class MarkdownProcessor
   end
 
   def parse_rerun_option(options_string)
-    parse_boolean_option(options_string, "rerun", false)
+    @code_block_parser.parse_rerun_option(options_string)
   end
 
   def parse_run_option(options_string)
-    parse_boolean_option(options_string, "run", true)
-  end
-
-  def parse_boolean_option(options_string, option_name, default_value)
-    return default_value unless options_string
-
-    # Match option=true or option=false
-    match = options_string.match(/#{option_name}\s*=\s*(true|false)/i)
-    return default_value unless match
-
-    match[1].downcase == "true"
+    @code_block_parser.parse_run_option(options_string)
   end
 
   def handle_line(current_line, file_enum)
@@ -102,19 +94,15 @@ class MarkdownProcessor
   end
 
   def handle_outside_code_block(current_line, file_enum)
-    if current_line.match?(/^```ruby\s+RESULT$/i)
+    if @code_block_parser.is_ruby_result_block?(current_line)
       handle_existing_ruby_result_block(current_line, file_enum)
-    elsif (match_data = current_line.match(/^```(\w+)(?:\s+(.*))?$/i))
-      lang = match_data[1].downcase
-      options_string = match_data[2]
-      resolved_lang = resolve_language(lang)
-      if SUPPORTED_LANGUAGES.key?(resolved_lang)
-        start_code_block(current_line, lang, options_string)
+    else
+      parsed_header = @code_block_parser.parse_code_block_header(current_line)
+      if parsed_header && parsed_header[:is_supported]
+        start_code_block(current_line, parsed_header[:original_lang], parsed_header[:options_string])
       else
         @output_lines << current_line
       end
-    else
-      @output_lines << current_line
     end
   end
 
@@ -169,50 +157,22 @@ class MarkdownProcessor
   end
 
   def decide_execution(file_enum)
-    # If run=false, skip execution entirely (no result block creation)
-    unless @current_block_run
-      return { execute: false, lines_to_pass_through: [] }
+    decider = ExecutionDecider.new(@current_block_run, @current_block_rerun, @current_block_lang)
+    decision = decider.decide(file_enum, method(:result_block_regex))
+
+    # Handle the consume_existing flag for rerun scenarios
+    if decision[:consume_existing]
+      consume_existing_result_block(file_enum, decision[:consumed_lines])
     end
 
-    peek1 = peek_next_line(file_enum)
-    expected_header_regex = result_block_regex(@current_block_lang)
-
-    if line_matches_pattern?(peek1, expected_header_regex)
-      # If rerun=true, execute even if result block exists
-      if @current_block_rerun
-        # Consume the existing result block and execute
-        consumed_lines = [file_enum.next]
-        consume_existing_result_block(file_enum, consumed_lines)
-        return { execute: true, consumed_lines: consumed_lines }
-      else
-        return { execute: false, lines_to_pass_through: [file_enum.next] }
-      end
-    elsif is_blank_line?(peek1)
-      consumed_blank_line = file_enum.next
-      peek2 = peek_next_line(file_enum)
-
-      if line_matches_pattern?(peek2, expected_header_regex)
-        if @current_block_rerun
-          # Consume the blank line and existing result block, then execute
-          consumed_lines = [consumed_blank_line, file_enum.next]
-          consume_existing_result_block(file_enum, consumed_lines)
-          return { execute: true, consumed_lines: consumed_lines, blank_line: consumed_blank_line }
-        else
-          return { execute: false, lines_to_pass_through: [consumed_blank_line, file_enum.next] }
-        end
-      else
-        return { execute: true, blank_line: consumed_blank_line }
-      end
-    else
-      return { execute: true }
-    end
+    decision
   end
 
   def execute_and_add_result(blank_line_before_new_result)
     @output_lines << blank_line_before_new_result if blank_line_before_new_result
 
     if has_content?(@current_code_content)
-      result_output = execute_code_block(@current_code_content, @current_block_lang, @temp_dir)
+      result_output = CodeExecutor.execute(@current_code_content, @current_block_lang, @temp_dir)
       add_result_block(result_output, blank_line_before_new_result)
     else
       warn "Skipping empty code block for language '#{@current_block_lang}'."
@@ -268,73 +228,5 @@ class MarkdownProcessor
 
   def stderr_has_content?(stderr_output)
     stderr_output && !stderr_output.strip.empty?
-  end
-
-  def format_captured_output(captured_status_obj, captured_stderr, captured_stdout, lang_config)
-    result_output = captured_stdout
-    stderr_output = captured_stderr
-    exit_status = captured_status_obj.exitstatus
-
-    # JS-specific: Append stderr to result if execution failed and stderr has content
-    if lang_config && lang_config[:error_handling] == :js_specific && exit_status != 0 && stderr_has_content?(stderr_output)
-      result_output += "\nStderr:\n#{stderr_output.strip}"
-    end
-    return exit_status, result_output, stderr_output
-  end
-
-  def add_error_to_output(exit_status, lang_config, lang_key, result_output, stderr_output)
-    warn "Code execution failed for language '#{lang_key}' with status #{exit_status}."
-    warn "Stderr:\n#{stderr_output}" if stderr_has_content?(stderr_output)
-
-    is_js_error_already_formatted = lang_config && lang_config[:error_handling] == :js_specific && result_output.include?("Stderr:")
-    unless result_output.downcase.include?("error:") || is_js_error_already_formatted
-      error_prefix = "Execution failed (status: #{exit_status})."
-      error_prefix += " Stderr: #{stderr_output.strip}" if stderr_has_content?(stderr_output)
-      result_output = "#{error_prefix}\n#{result_output}"
-    end
-    result_output
-  end
-
-  def execute_code_block(code_content, lang, temp_dir)
-    captured_status_obj = nil
-
-    lang_key = lang.downcase # Normalize lang input for lookup
-    lang_config = SUPPORTED_LANGUAGES[lang_key]
-
-    if lang_config
-      exit_status = 0
-      warn "Executing #{lang_key} code block..." # Generic description
-      cmd_lambda = lang_config[:command]
-      temp_file_suffix = lang_config[:temp_file_suffix]
-
-      captured_stdout = nil
-      if temp_file_suffix # Needs a temporary file. Use lang_key as prefix.
-        Tempfile.create([ lang_key, temp_file_suffix ], temp_dir) do |temp_file|
-          temp_file.write(code_content)
-          temp_file.close
-          # Pass temp_file.path. Lambda decides if it needs code_content directly.
-          command_to_run, exec_options = cmd_lambda.call(code_content, temp_file.path)
-          captured_stdout, _, captured_status_obj = Open3.capture3(command_to_run, **exec_options)
-        end
-      else # Direct command execution (e.g., psql that takes stdin)
-        # Pass nil for temp_file_path. Lambda decides if it needs code_content.
-        command_to_run, exec_options = cmd_lambda.call(code_content, nil)
-        captured_stdout, captured_stderr, captured_status_obj = Open3.capture3(command_to_run, **exec_options)
-      end
-    else
-      warn "Unsupported language: #{lang}"
-      result_output = "ERROR: Unsupported language: #{lang}"
-      exit_status = 1 # Indicate an error
-      # captured_status_obj remains nil, so common assignments below won't run
-    end
-
-    if captured_status_obj
-      exit_status, result_output, stderr_output = format_captured_output(captured_status_obj, captured_stderr, captured_stdout, lang_config)
-    end
-
-    if exit_status != 0
-      result_output = add_error_to_output(exit_status, lang_config, lang_key, result_output, stderr_output)
-    end
-    result_output
   end
 end
