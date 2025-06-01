@@ -54,12 +54,23 @@ example vscode keybinding
 
 ### Code block options
 
-- `rerun=true` or `rerun=false` for a code block to rerun or skip execution. `rerun=true` is the default if not specified
+- `run=true` or `run=false` to control whether a code block should be executed at all. `run=true` is the default if not specified
+- `rerun=true` or `rerun=false` to control whether a code block should be re-executed if a result block already exists. `rerun=false` is the default if not specified
 
-example:
+Options can be combined. If `run=false` is specified, the code block will not execute regardless of the `rerun` setting.
 
-```js rerun=false
-console.log("hello world");
+Examples:
+
+```js run=false
+console.log("This will not execute at all");
+```
+
+```js rerun=true
+console.log("This will re-execute even if result exists");
+```
+
+```js run=true rerun=false
+console.log("This will execute only if no result exists");
 ```
 
 ## Frontmatter

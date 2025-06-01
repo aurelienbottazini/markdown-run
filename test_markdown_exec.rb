@@ -10,6 +10,9 @@ require "minitest/autorun"
 require "fileutils"
 require "tmpdir"
 
+# Load the main script to access process_markdown_file_main
+load File.expand_path("./exe/markdown-run", __dir__)
+
 # --- Minitest Test Class Definition ---
 class TestMarkdownExec < Minitest::Test
   def setup
@@ -200,5 +203,95 @@ class TestMarkdownExec < Minitest::Test
     file_content = read_md_file
     refute file_content.include?("Should also change: 666666666"), "rerun=true with blank line should replace existing result"
     assert file_content.match?(/Should also change: \d+/), "rerun=true with blank line should generate new result"
+  end
+
+  def test_run_functionality
+    # Test 1: Default behavior (run=true implicit) should execute new code block
+    md_content_default = <<~MARKDOWN
+      ```ruby
+      puts "Should execute by default"
+      ```
+    MARKDOWN
+    create_md_file(md_content_default)
+    process_markdown_file_main(@test_md_file_path)
+
+    file_content = read_md_file
+    assert file_content.include?("```ruby RESULT"), "Default behavior should create result block"
+    assert file_content.include?("Should execute by default"), "Default behavior should execute and show output"
+
+    # Test 2: run=true explicit should execute new code block
+    md_content_run_true = <<~MARKDOWN
+      ```ruby run=true
+      puts "Should execute with run=true"
+      ```
+    MARKDOWN
+    create_md_file(md_content_run_true)
+    process_markdown_file_main(@test_md_file_path)
+
+    file_content = read_md_file
+    assert file_content.include?("```ruby RESULT"), "run=true should create result block"
+    assert file_content.include?("Should execute with run=true"), "run=true should execute and show output"
+
+    # Test 3: run=false should not execute at all (no result block created)
+    md_content_run_false = <<~MARKDOWN
+      ```ruby run=false
+      puts "Should not execute"
+      puts "No result block should be created"
+      ```
+    MARKDOWN
+    create_md_file(md_content_run_false)
+    process_markdown_file_main(@test_md_file_path)
+
+    file_content = read_md_file
+    refute file_content.include?("```ruby RESULT"), "run=false should not create result block"
+    refute file_content.match?(/puts "Should not execute"\n# >>/), "run=false should not execute code (no # >> output)"
+    assert file_content.include?("puts \"Should not execute\""), "run=false should preserve original code block"
+
+    # Test 4: run=false with existing result block should skip execution but preserve result
+    md_content_run_false_with_result = <<~MARKDOWN
+      ```ruby run=false
+      puts "Should not execute"
+      ```
+
+      ```ruby RESULT
+      Old result that should be preserved
+      ```
+    MARKDOWN
+    create_md_file(md_content_run_false_with_result)
+    process_markdown_file_main(@test_md_file_path)
+
+    file_content = read_md_file
+    assert file_content.include?("Old result that should be preserved"), "run=false should preserve existing result"
+    refute file_content.match?(/puts "Should not execute"\n# >>/), "run=false should not create new execution output"
+
+    # Test 5: Combined options - run=false with rerun=true should still not execute
+    md_content_combined = <<~MARKDOWN
+      ```ruby run=false rerun=true
+      puts "Should not execute despite rerun=true"
+      ```
+
+      ```ruby RESULT
+      Existing result
+      ```
+    MARKDOWN
+    create_md_file(md_content_combined)
+    process_markdown_file_main(@test_md_file_path)
+
+    file_content = read_md_file
+    assert file_content.include?("Existing result"), "run=false should override rerun=true"
+    refute file_content.match?(/puts "Should not execute despite rerun=true"\n# >>/), "run=false should prevent execution even with rerun=true"
+
+    # Test 6: Combined options - run=true with rerun=false should execute if no result exists
+    md_content_run_true_rerun_false = <<~MARKDOWN
+      ```ruby run=true rerun=false
+      puts "Should execute because no result exists"
+      ```
+    MARKDOWN
+    create_md_file(md_content_run_true_rerun_false)
+    process_markdown_file_main(@test_md_file_path)
+
+    file_content = read_md_file
+    assert file_content.include?("```ruby RESULT"), "run=true rerun=false should execute when no result exists"
+    assert file_content.include?("Should execute because no result exists"), "run=true rerun=false should show output when no result exists"
   end
 end

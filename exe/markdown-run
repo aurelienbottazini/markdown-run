@@ -89,6 +89,7 @@ class MarkdownProcessor
     @current_block_lang = ""
     @current_code_content = ""
     @current_block_rerun = false
+    @current_block_run = true
     @aliases = {}
   end
 
@@ -204,6 +205,16 @@ class MarkdownProcessor
     match[1].downcase == "true"
   end
 
+  def parse_run_option(options_string)
+    return true unless options_string
+    
+    # Match run=true or run=false
+    match = options_string.match(/run\s*=\s*(true|false)/i)
+    return true unless match
+    
+    match[1].downcase == "true"
+  end
+
   def safe_enum_operation(file_enum, operation)
     file_enum.send(operation)
   rescue StopIteration
@@ -271,6 +282,7 @@ class MarkdownProcessor
     @output_lines << current_line
     @current_block_lang = resolve_language(lang)
     @current_block_rerun = parse_rerun_option(options_string)
+    @current_block_run = parse_run_option(options_string)
     @state = :inside_code_block
     @current_code_content = ""
   end
@@ -296,6 +308,11 @@ class MarkdownProcessor
   end
 
   def decide_execution(file_enum)
+    # If run=false, skip execution entirely (no result block creation)
+    unless @current_block_run
+      return { execute: false, lines_to_pass_through: [] }
+    end
+
     peek1 = peek_next_line(file_enum)
     expected_header_regex = result_block_regex(@current_block_lang)
 
@@ -342,6 +359,12 @@ class MarkdownProcessor
   end
 
   def skip_and_pass_through_result(lines_to_pass_through, file_enum)
+    # Handle run=false case where there are no lines to pass through
+    if lines_to_pass_through.empty?
+      warn "Skipping execution due to run=false option."
+      return
+    end
+
     lang_specific_result_type = ruby_style_result?(@current_block_lang) ? "```ruby RESULT" : "```RESULT"
 
     warn "Found existing '#{lang_specific_result_type}' block for current #{@current_block_lang} block, skipping execution."
@@ -379,6 +402,7 @@ class MarkdownProcessor
     @state = :outside_code_block
     @current_code_content = ""
     @current_block_rerun = false
+    @current_block_run = true
   end
 end
 
