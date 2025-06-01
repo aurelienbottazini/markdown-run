@@ -4,6 +4,7 @@ require "tempfile"
 require "open3"
 require "fileutils"
 require "yaml"
+require_relative "../lib/markdown/run/config"
 require_relative "../lib/language_configs"
 
 # Script to process markdown files, execute code blocks based on language,
@@ -42,7 +43,7 @@ def execute_code_block(code_content, lang, temp_dir)
   captured_status_obj = nil
 
   lang_key = lang.downcase # Normalize lang input for lookup
-  lang_config = SUPPORTED_LANGUAGES[lang_key]
+  lang_config = MarkdownRunConfig::SUPPORTED_LANGUAGES[lang_key]
 
   if lang_config
     exit_status = 0
@@ -159,7 +160,7 @@ class MarkdownProcessor
   end
 
   def ruby_style_result?(lang)
-    lang_config = SUPPORTED_LANGUAGES[lang]
+    lang_config = MarkdownRunConfig::SUPPORTED_LANGUAGES[lang]
     lang_config && lang_config[:result_block_type] == "ruby"
   end
 
@@ -247,7 +248,7 @@ class MarkdownProcessor
       lang = match_data[1].downcase
       options_string = match_data[2]
       resolved_lang = resolve_language(lang)
-      if SUPPORTED_LANGUAGES.key?(resolved_lang)
+      if MarkdownRunConfig::SUPPORTED_LANGUAGES.key?(resolved_lang)
         start_code_block(current_line, lang, options_string)
       else
         @output_lines << current_line

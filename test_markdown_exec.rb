@@ -1,17 +1,7 @@
-require "bundler/inline"
-gemfile(true) do
-  source "https://rubygems.org"
-  gem "minitest", "5.25.5" # Specify the required version
-  gem "rcodetools"
-end
-
 require "minitest/test"
 require "minitest/autorun"
 require "fileutils"
 require "tmpdir"
-
-# Load the main script to access process_markdown_file_main
-load File.expand_path("./exe/markdown-run", __dir__)
 
 # --- Minitest Test Class Definition ---
 class TestMarkdownExec < Minitest::Test
