@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [0.1.7] - 2025-06-01
+
+- Added rerun functionality
+
 ## [0.1.6] - 2025-06-01
 
 - Refactor code to state pattern
