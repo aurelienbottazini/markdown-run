@@ -5,8 +5,7 @@ require_relative "markdown_file_writer"
 module MarkdownRun
   def self.process_markdown_file_main(input_file_path)
     unless File.exist?(input_file_path) && File.readable?(input_file_path)
-      warn "Error: Input file '#{input_file_path}' not found or not readable."
-      return false # Indicate failure
+      abort "Error: Input file '#{input_file_path}' not found or not readable."
     end
 
     temp_dir = File.dirname(File.expand_path(input_file_path))
