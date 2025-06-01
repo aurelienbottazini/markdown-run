@@ -52,9 +52,20 @@ example vscode keybinding
   },
 ```
 
+### Code block options
+
+- `rerun=true` or `rerun=false` for a code block to rerun or skip execution. `rerun=true` is the default if not specified
+
+example:
+
+```js rerun=false
+console.log("hello world");
+```
+
 ## Frontmatter
 
 You can add a yaml frontmatter to redefine code block behavior.
+
 For example sql blocks run by default against sqlite
 To have them run with postgres you can add at the top of your markdown file:
 

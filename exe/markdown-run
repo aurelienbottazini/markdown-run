@@ -88,6 +88,7 @@ class MarkdownProcessor
     @state = :outside_code_block
     @current_block_lang = ""
     @current_code_content = ""
+    @current_block_rerun = false
     @aliases = {}
   end
 
@@ -193,6 +194,16 @@ class MarkdownProcessor
     line && line.strip == ""
   end
 
+  def parse_rerun_option(options_string)
+    return false unless options_string
+    
+    # Match rerun=true or rerun=false
+    match = options_string.match(/rerun\s*=\s*(true|false)/i)
+    return false unless match
+    
+    match[1].downcase == "true"
+  end
+
   def safe_enum_operation(file_enum, operation)
     file_enum.send(operation)
   rescue StopIteration
@@ -221,11 +232,12 @@ class MarkdownProcessor
   def handle_outside_code_block(current_line, file_enum)
     if current_line.match?(/^```ruby\s+RESULT$/i)
       handle_existing_ruby_result_block(current_line, file_enum)
-    elsif (match_data = current_line.match(/^```(\w+)$/i))
+    elsif (match_data = current_line.match(/^```(\w+)(?:\s+(.*))?$/i))
       lang = match_data[1].downcase
+      options_string = match_data[2]
       resolved_lang = resolve_language(lang)
       if SUPPORTED_LANGUAGES.key?(resolved_lang)
-        start_code_block(current_line, lang)
+        start_code_block(current_line, lang, options_string)
       else
         @output_lines << current_line
       end
@@ -255,9 +267,10 @@ class MarkdownProcessor
     @state = :inside_result_block
   end
 
-  def start_code_block(current_line, lang)
+  def start_code_block(current_line, lang, options_string = nil)
     @output_lines << current_line
     @current_block_lang = resolve_language(lang)
+    @current_block_rerun = parse_rerun_option(options_string)
     @state = :inside_code_block
     @current_code_content = ""
   end
@@ -273,6 +286,7 @@ class MarkdownProcessor
     decision = decide_execution(file_enum)
 
     if decision[:execute]
+      # If we consumed lines for rerun, don't add them to output (they'll be replaced)
       execute_and_add_result(decision[:blank_line])
     else
       skip_and_pass_through_result(decision[:lines_to_pass_through], file_enum)
@@ -286,13 +300,28 @@ class MarkdownProcessor
     expected_header_regex = result_block_regex(@current_block_lang)
 
     if line_matches_pattern?(peek1, expected_header_regex)
-      return { execute: false, lines_to_pass_through: [file_enum.next] }
+      # If rerun=true, execute even if result block exists
+      if @current_block_rerun
+        # Consume the existing result block and execute
+        consumed_lines = [file_enum.next]
+        consume_existing_result_block(file_enum, consumed_lines)
+        return { execute: true, consumed_lines: consumed_lines }
+      else
+        return { execute: false, lines_to_pass_through: [file_enum.next] }
+      end
     elsif is_blank_line?(peek1)
       consumed_blank_line = file_enum.next
       peek2 = peek_next_line(file_enum)
 
       if line_matches_pattern?(peek2, expected_header_regex)
-        return { execute: false, lines_to_pass_through: [consumed_blank_line, file_enum.next] }
+        if @current_block_rerun
+          # Consume the blank line and existing result block, then execute
+          consumed_lines = [consumed_blank_line, file_enum.next]
+          consume_existing_result_block(file_enum, consumed_lines)
+          return { execute: true, consumed_lines: consumed_lines, blank_line: consumed_blank_line }
+        else
+          return { execute: false, lines_to_pass_through: [consumed_blank_line, file_enum.next] }
+        end
       else
         return { execute: true, blank_line: consumed_blank_line }
       end
@@ -334,9 +363,22 @@ class MarkdownProcessor
     end
   end
 
+  def consume_existing_result_block(file_enum, consumed_lines)
+    begin
+      loop do
+        result_block_line = file_enum.next
+        consumed_lines << result_block_line
+        break if is_block_end?(result_block_line)
+      end
+    rescue StopIteration
+      warn "Warning: End of file reached while consuming existing result block for rerun."
+    end
+  end
+
   def reset_code_block_state
     @state = :outside_code_block
     @current_code_content = ""
+    @current_block_rerun = false
   end
 end
 
