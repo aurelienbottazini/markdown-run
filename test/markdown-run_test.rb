@@ -7,7 +7,7 @@ require "tmpdir"
 require_relative "../lib/markdown_run"
 
 # --- Minitest Test Class Definition ---
-class TestMarkdownExec < Minitest::Test
+class TestMarkdownRun < Minitest::Test
   def setup
     @temp_dir = Dir.mktmpdir("markdown_exec_tests")
     @test_md_file_path = File.join(@temp_dir, "test.md")
