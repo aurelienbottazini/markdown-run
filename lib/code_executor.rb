@@ -43,8 +43,17 @@ class CodeExecutor
       temp_file.write(code_content)
       temp_file.close
       command_to_run, exec_options = cmd_lambda.call(code_content, temp_file.path)
+
+      # Extract output_path if present (for mermaid)
+      output_path = exec_options.delete(:output_path) if exec_options.is_a?(Hash)
+
       captured_stdout, captured_stderr, captured_status_obj = Open3.capture3(command_to_run, **exec_options)
-      result = { stdout: captured_stdout, stderr: captured_stderr, status: captured_status_obj }
+      result = {
+        stdout: captured_stdout,
+        stderr: captured_stderr,
+        status: captured_status_obj,
+        output_path: output_path # For mermaid SVG output
+      }
     end
     result
   end
@@ -60,6 +69,8 @@ class CodeExecutor
 
     if exit_status != 0
       result_output = add_error_to_output(exit_status, lang_config, lang_key, result_output, stderr_output)
+    elsif lang_config && lang_config[:result_handling] == :mermaid_svg
+      result_output = handle_mermaid_svg_result(result, lang_key)
     end
 
     result_output
@@ -93,5 +104,21 @@ class CodeExecutor
 
   def stderr_has_content?(stderr_output)
     stderr_output && !stderr_output.strip.empty?
+  end
+
+  def handle_mermaid_svg_result(result, lang_key)
+    output_path = result[:output_path]
+
+    unless output_path && File.exist?(output_path)
+      warn "Warning: Mermaid SVG file not generated at expected path: #{output_path}"
+      return "Error: SVG file not generated"
+    end
+
+    # Generate relative path for the SVG file
+    svg_filename = File.basename(output_path)
+    warn "Generated Mermaid SVG: #{svg_filename}"
+
+    # Return markdown image tag instead of typical result content
+    "![Mermaid Diagram](#{svg_filename})"
   end
 end

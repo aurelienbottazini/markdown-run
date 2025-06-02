@@ -73,6 +73,23 @@ SUPPORTED_LANGUAGES = {
       [ "sh #{temp_file_path}", {} ]
     },
     temp_file_suffix: ".sh"
+  },
+  "mermaid" => {
+    command: ->(code_content, temp_file_path) {
+      mmdc_exists = system("command -v mmdc > /dev/null 2>&1")
+      unless mmdc_exists
+        abort "Error: mmdc command not found. Please install @mermaid-js/mermaid-cli: npm install -g @mermaid-js/mermaid-cli"
+      end
+
+      # Generate SVG output file path
+      input_dir = File.dirname(temp_file_path)
+      base_name = File.basename(temp_file_path, ".*")
+      output_path = File.join(input_dir, "#{base_name}.svg")
+
+      [ "mmdc -i #{temp_file_path} -o #{output_path}", { output_path: output_path } ]
+    },
+    temp_file_suffix: ".mmd",
+    result_handling: :mermaid_svg # Special handling for SVG generation
   }
 }.freeze
 

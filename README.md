@@ -16,6 +16,7 @@ Supported languages:
 - postgresql
 - bash
 - zsh
+- mermaid (generates SVG diagrams)
 
 ## Installation
 
@@ -72,6 +73,20 @@ console.log("This will re-execute even if result exists");
 ```js run=true rerun=false
 console.log("This will execute only if no result exists");
 ```
+
+### Mermaid diagrams
+
+Mermaid blocks generate SVG files and insert markdown image tags:
+
+```mermaid
+graph TD
+    A[Start] --> B[Process]
+    B --> C[End]
+```
+
+This generates an SVG file and inserts: `![Mermaid Diagram](filename.svg)`
+
+Note: Requires `@mermaid-js/mermaid-cli` to be installed: `npm install -g @mermaid-js/mermaid-cli`
 
 ## Frontmatter
 

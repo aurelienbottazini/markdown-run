@@ -42,12 +42,24 @@ class MarkdownProcessor
     lang_config && lang_config[:result_block_type] == "ruby"
   end
 
+  def mermaid_style_result?(lang)
+    lang_config = SUPPORTED_LANGUAGES[lang]
+    lang_config && lang_config[:result_handling] == :mermaid_svg
+  end
+
   def result_block_header(lang)
     ruby_style_result?(lang) ? "```ruby RESULT\n" : "```RESULT\n"
   end
 
   def result_block_regex(lang)
-    ruby_style_result?(lang) ? /^```ruby\s+RESULT$/i : /^```RESULT$/i
+    if mermaid_style_result?(lang)
+      # For mermaid, look for existing image tags with .svg extension
+      /^!\[.*\]\(.*\.svg\)$/i
+    elsif ruby_style_result?(lang)
+      /^```ruby\s+RESULT$/i
+    else
+      /^```RESULT$/i
+    end
   end
 
   def is_block_end?(line)
@@ -59,11 +71,19 @@ class MarkdownProcessor
   end
 
   def add_result_block(result_output, blank_line_before_new_result)
-    @output_lines << "\n" if blank_line_before_new_result.nil?
-    @output_lines << result_block_header(@current_block_lang)
-    @output_lines << result_output
-    @output_lines << "\n" unless result_output.empty? || result_output.end_with?("\n")
-    @output_lines << "```\n\n"
+    if mermaid_style_result?(@current_block_lang)
+      # For mermaid, add the image tag directly without a result block
+      @output_lines << "\n" if blank_line_before_new_result.nil?
+      @output_lines << result_output
+      @output_lines << "\n" unless result_output.empty? || result_output.end_with?("\n")
+      @output_lines << "\n"
+    else
+      @output_lines << "\n" if blank_line_before_new_result.nil?
+      @output_lines << result_block_header(@current_block_lang)
+      @output_lines << result_output
+      @output_lines << "\n" unless result_output.empty? || result_output.end_with?("\n")
+      @output_lines << "```\n\n"
+    end
   end
 
   def line_matches_pattern?(line, pattern)
@@ -186,13 +206,16 @@ class MarkdownProcessor
       return
     end
 
-    lang_specific_result_type = ruby_style_result?(@current_block_lang) ? "```ruby RESULT" : "```RESULT"
-
-    warn "Found existing '#{lang_specific_result_type}' block for current #{@current_block_lang} block, skipping execution."
-
-    @output_lines.concat(lines_to_pass_through)
-
-    consume_result_block_content(file_enum)
+    if mermaid_style_result?(@current_block_lang)
+      warn "Found existing mermaid SVG image for current #{@current_block_lang} block, skipping execution."
+      @output_lines.concat(lines_to_pass_through)
+      # For mermaid, no additional consumption needed since it's just an image line
+    else
+      lang_specific_result_type = ruby_style_result?(@current_block_lang) ? "```ruby RESULT" : "```RESULT"
+      warn "Found existing '#{lang_specific_result_type}' block for current #{@current_block_lang} block, skipping execution."
+      @output_lines.concat(lines_to_pass_through)
+      consume_result_block_content(file_enum)
+    end
   end
 
   def consume_result_block_content(file_enum)
@@ -202,6 +225,12 @@ class MarkdownProcessor
   end
 
   def consume_existing_result_block(file_enum, consumed_lines)
+    if mermaid_style_result?(@current_block_lang)
+      # For mermaid, there's no result block to consume, just the image line
+      # The image line should already be in consumed_lines from ExecutionDecider
+      return
+    end
+
     consume_block_lines(file_enum) do |line|
       consumed_lines << line
     end

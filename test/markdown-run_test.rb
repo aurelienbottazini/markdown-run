@@ -286,4 +286,23 @@ class TestMarkdownRun < Minitest::Test
     assert file_content.include?("```ruby RESULT"), "run=true rerun=false should execute when no result exists"
     assert file_content.include?("Should execute because no result exists"), "run=true rerun=false should show output when no result exists"
   end
+
+  def test_mermaid_block_execution
+    skip "Skipping test_mermaid_block_execution if mmdc not available" unless system("command -v mmdc > /dev/null 2>&1")
+
+    md_content = <<~MARKDOWN
+      ```mermaid
+      graph TD
+          A[Start] --> B[Process]
+          B --> C[End]
+      ```
+    MARKDOWN
+    create_md_file(md_content)
+    MarkdownRun.run_code_blocks(@test_md_file_path)
+
+    file_content = read_md_file
+    assert file_content.include?("```mermaid"), "Original mermaid code should be present"
+    assert file_content.match?(/!\[Mermaid Diagram\]\(.+\.svg\)/), "Mermaid should generate SVG image tag"
+    refute file_content.include?("```RESULT"), "Mermaid should not create a RESULT block"
+  end
 end

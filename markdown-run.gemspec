@@ -11,7 +11,7 @@ Gem::Specification.new do |spec|
   spec.email = [ "32635+aurelienbottazini@users.noreply.github.com" ]
 
   spec.summary = "Run code blocks in Markdown files"
-  spec.description = "Run code blocks in Markdown files for Ruby, JavaScript, sqlite and psql. Insert execution results next to the original code blocks."
+  spec.description = "Run code blocks in Markdown files for Ruby, JavaScript, sqlite, psql, bash, zsh, and mermaid. Insert execution results next to the original code blocks. Generate SVG diagrams from mermaid blocks."
   spec.homepage = "https://github.com/aurelienbottazini/markdown-run"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.0.0"
