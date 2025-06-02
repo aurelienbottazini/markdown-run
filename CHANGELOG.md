@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [0.1.9] - 2025-06-02
+
+- mermaid codeblocks
+
 ## [0.1.8] - 2025-06-01
 
 - Added run option
