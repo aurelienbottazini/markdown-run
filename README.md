@@ -84,7 +84,11 @@ graph TD
     B --> C[End]
 ```
 
-This generates an SVG file and inserts: `![Mermaid Diagram](filename.svg)`
+This generates an SVG file in a directory named after the markdown file, with a filename that includes the markdown file's basename and a timestamp:
+
+- Directory: `my-document/` (if the markdown file is `my-document.md`)
+- Filename: `my-document-20250602-215507-a1289a799c29.svg`
+- Image tag: `![Mermaid Diagram](my-document/my-document-20250602-215507-a1289a799c29.svg)`
 
 Note: Requires `@mermaid-js/mermaid-cli` to be installed: `npm install -g @mermaid-js/mermaid-cli`
 

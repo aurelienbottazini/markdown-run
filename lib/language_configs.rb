@@ -1,5 +1,7 @@
+require 'securerandom'
+
 JS_CONFIG = {
-  command: ->(_code_content, temp_file_path) {
+  command: ->(_code_content, temp_file_path, input_file_path = nil) {
     # Check if bun is available
     bun_exists = system("command -v bun > /dev/null 2>&1")
     if bun_exists
@@ -14,13 +16,13 @@ JS_CONFIG = {
 }.freeze
 
 SQLITE_CONFIG = {
-  command: ->(code_content, temp_file_path) { [ "sqlite3 #{temp_file_path}", { stdin_data: code_content } ] },
+  command: ->(code_content, temp_file_path, input_file_path = nil) { [ "sqlite3 #{temp_file_path}", { stdin_data: code_content } ] },
   temp_file_suffix: ".db" # Temp file is the database
 }.freeze
 
 SUPPORTED_LANGUAGES = {
   "psql" => {
-    command: ->(code_content, _temp_file_path) {
+    command: ->(code_content, _temp_file_path, input_file_path = nil) {
       psql_exists = system("command -v psql > /dev/null 2>&1")
       unless psql_exists
         abort "Error: psql command not found. Please install PostgreSQL or ensure psql is in your PATH."
@@ -29,7 +31,7 @@ SUPPORTED_LANGUAGES = {
     }
   },
   "ruby" => {
-    command: ->(_code_content, temp_file_path) {
+    command: ->(_code_content, temp_file_path, input_file_path = nil) {
       xmpfilter_exists = system("command -v xmpfilter > /dev/null 2>&1")
       unless xmpfilter_exists
         abort "Error: xmpfilter command not found. Please install xmpfilter or ensure it is in your PATH."
@@ -45,7 +47,7 @@ SUPPORTED_LANGUAGES = {
   "sqlite" => SQLITE_CONFIG,
   "sqlite3" => SQLITE_CONFIG, # Alias for sqlite
   "bash" => {
-    command: ->(_code_content, temp_file_path) {
+    command: ->(_code_content, temp_file_path, input_file_path = nil) {
       bash_exists = system("command -v bash > /dev/null 2>&1")
       unless bash_exists
         abort "Error: bash command not found. Please ensure bash is in your PATH."
@@ -55,7 +57,7 @@ SUPPORTED_LANGUAGES = {
     temp_file_suffix: ".sh"
   },
   "zsh" => {
-    command: ->(_code_content, temp_file_path) {
+    command: ->(_code_content, temp_file_path, input_file_path = nil) {
       zsh_exists = system("command -v zsh > /dev/null 2>&1")
       unless zsh_exists
         abort "Error: zsh command not found. Please ensure zsh is in your PATH."
@@ -65,7 +67,7 @@ SUPPORTED_LANGUAGES = {
     temp_file_suffix: ".zsh"
   },
   "sh" => {
-    command: ->(_code_content, temp_file_path) {
+    command: ->(_code_content, temp_file_path, input_file_path = nil) {
       sh_exists = system("command -v sh > /dev/null 2>&1")
       unless sh_exists
         abort "Error: sh command not found. Please ensure sh is in your PATH."
@@ -75,16 +77,32 @@ SUPPORTED_LANGUAGES = {
     temp_file_suffix: ".sh"
   },
   "mermaid" => {
-    command: ->(code_content, temp_file_path) {
+    command: ->(code_content, temp_file_path, input_file_path = nil) {
       mmdc_exists = system("command -v mmdc > /dev/null 2>&1")
       unless mmdc_exists
         abort "Error: mmdc command not found. Please install @mermaid-js/mermaid-cli: npm install -g @mermaid-js/mermaid-cli"
       end
 
-      # Generate SVG output file path
-      input_dir = File.dirname(temp_file_path)
-      base_name = File.basename(temp_file_path, ".*")
-      output_path = File.join(input_dir, "#{base_name}.svg")
+      # Generate SVG output file path with directory structure based on markdown file
+      if input_file_path
+        # Extract markdown file basename without extension
+        md_basename = File.basename(input_file_path, ".*")
+        
+        # Create directory named after the markdown file
+        output_dir = File.join(File.dirname(input_file_path), md_basename)
+        Dir.mkdir(output_dir) unless Dir.exist?(output_dir)
+        
+        # Generate unique filename with markdown basename prefix
+        timestamp = Time.now.strftime("%Y%m%d-%H%M%S")
+        random_suffix = SecureRandom.hex(6)
+        svg_filename = "#{md_basename}-#{timestamp}-#{random_suffix}.svg"
+        output_path = File.join(output_dir, svg_filename)
+      else
+        # Fallback to old behavior if no input file path provided
+        input_dir = File.dirname(temp_file_path)
+        base_name = File.basename(temp_file_path, ".*")
+        output_path = File.join(input_dir, "#{base_name}.svg")
+      end
 
       [ "mmdc -i #{temp_file_path} -o #{output_path}", { output_path: output_path } ]
     },

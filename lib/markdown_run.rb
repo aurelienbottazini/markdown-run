@@ -11,7 +11,7 @@ module MarkdownRun
     temp_dir = File.dirname(File.expand_path(input_file_path))
     file_enum = File.foreach(input_file_path, chomp: false).to_enum
 
-    processor = MarkdownProcessor.new(temp_dir)
+    processor = MarkdownProcessor.new(temp_dir, input_file_path)
     output_lines = processor.process_file(file_enum)
 
     # Write the modified content back to the input file

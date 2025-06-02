@@ -7,8 +7,9 @@ require_relative "enum_helper"
 
 class MarkdownProcessor
   include EnumHelper
-  def initialize(temp_dir)
+  def initialize(temp_dir, input_file_path = nil)
     @temp_dir = temp_dir
+    @input_file_path = input_file_path
     @output_lines = []
     @state = :outside_code_block
     @current_block_lang = ""
@@ -192,7 +193,7 @@ class MarkdownProcessor
     @output_lines << blank_line_before_new_result if blank_line_before_new_result
 
     if has_content?(@current_code_content)
-      result_output = CodeExecutor.execute(@current_code_content, @current_block_lang, @temp_dir)
+      result_output = CodeExecutor.execute(@current_code_content, @current_block_lang, @temp_dir, @input_file_path)
       add_result_block(result_output, blank_line_before_new_result)
     else
       warn "Skipping empty code block for language '#{@current_block_lang}'."

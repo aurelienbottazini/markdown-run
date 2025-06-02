@@ -3,11 +3,11 @@ require "open3"
 require_relative "language_configs"
 
 class CodeExecutor
-  def self.execute(code_content, lang, temp_dir)
-    new.execute(code_content, lang, temp_dir)
+  def self.execute(code_content, lang, temp_dir, input_file_path = nil)
+    new.execute(code_content, lang, temp_dir, input_file_path)
   end
 
-  def execute(code_content, lang, temp_dir)
+  def execute(code_content, lang, temp_dir, input_file_path = nil)
     lang_key = lang.downcase
     lang_config = SUPPORTED_LANGUAGES[lang_key]
 
@@ -15,7 +15,7 @@ class CodeExecutor
 
     warn "Executing #{lang_key} code block..."
 
-    result = execute_with_config(code_content, lang_config, temp_dir, lang_key)
+    result = execute_with_config(code_content, lang_config, temp_dir, lang_key, input_file_path)
     process_execution_result(result, lang_config, lang_key)
   end
 
@@ -26,23 +26,23 @@ class CodeExecutor
     "ERROR: Unsupported language: #{lang}"
   end
 
-  def execute_with_config(code_content, lang_config, temp_dir, lang_key)
+  def execute_with_config(code_content, lang_config, temp_dir, lang_key, input_file_path = nil)
     cmd_lambda = lang_config[:command]
     temp_file_suffix = lang_config[:temp_file_suffix]
 
     if temp_file_suffix
-      execute_with_temp_file(code_content, cmd_lambda, temp_file_suffix, temp_dir, lang_key)
+      execute_with_temp_file(code_content, cmd_lambda, temp_file_suffix, temp_dir, lang_key, input_file_path)
     else
       execute_direct_command(code_content, cmd_lambda)
     end
   end
 
-  def execute_with_temp_file(code_content, cmd_lambda, temp_file_suffix, temp_dir, lang_key)
+  def execute_with_temp_file(code_content, cmd_lambda, temp_file_suffix, temp_dir, lang_key, input_file_path = nil)
     result = nil
     Tempfile.create([lang_key, temp_file_suffix], temp_dir) do |temp_file|
       temp_file.write(code_content)
       temp_file.close
-      command_to_run, exec_options = cmd_lambda.call(code_content, temp_file.path)
+      command_to_run, exec_options = cmd_lambda.call(code_content, temp_file.path, input_file_path)
 
       # Extract output_path if present (for mermaid)
       output_path = exec_options.delete(:output_path) if exec_options.is_a?(Hash)
@@ -115,10 +115,23 @@ class CodeExecutor
     end
 
     # Generate relative path for the SVG file
+    # If the SVG is in a subdirectory, include the directory in the path
+    output_dir = File.dirname(output_path)
     svg_filename = File.basename(output_path)
-    warn "Generated Mermaid SVG: #{svg_filename}"
+    
+    # Check if SVG is in a subdirectory (new behavior) or same directory (fallback)
+    parent_dir = File.dirname(output_dir)
+    if File.basename(output_dir) != File.basename(parent_dir)
+      # SVG is in a subdirectory, use relative path with directory
+      relative_path = "#{File.basename(output_dir)}/#{svg_filename}"
+    else
+      # SVG is in same directory (fallback behavior)
+      relative_path = svg_filename
+    end
+    
+    warn "Generated Mermaid SVG: #{relative_path}"
 
     # Return markdown image tag instead of typical result content
-    "![Mermaid Diagram](#{svg_filename})"
+    "![Mermaid Diagram](#{relative_path})"
   end
 end
