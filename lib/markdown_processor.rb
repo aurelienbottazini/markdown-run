@@ -16,6 +16,7 @@ class MarkdownProcessor
     @current_code_content = ""
     @current_block_rerun = false
     @current_block_run = true
+    @current_block_explain = false
     @frontmatter_parser = FrontmatterParser.new
     @code_block_parser = CodeBlockParser.new(@frontmatter_parser)
   end
@@ -103,6 +104,10 @@ class MarkdownProcessor
     @code_block_parser.parse_run_option(options_string)
   end
 
+  def parse_explain_option(options_string)
+    @code_block_parser.parse_explain_option(options_string)
+  end
+
   def handle_line(current_line, file_enum)
     case @state
     when :outside_code_block
@@ -153,6 +158,7 @@ class MarkdownProcessor
     @current_block_lang = resolve_language(lang)
     @current_block_rerun = parse_rerun_option(options_string)
     @current_block_run = parse_run_option(options_string)
+    @current_block_explain = parse_explain_option(options_string)
     @state = :inside_code_block
     @current_code_content = ""
   end
@@ -193,7 +199,7 @@ class MarkdownProcessor
     @output_lines << blank_line_before_new_result if blank_line_before_new_result
 
     if has_content?(@current_code_content)
-      result_output = CodeExecutor.execute(@current_code_content, @current_block_lang, @temp_dir, @input_file_path)
+      result_output = CodeExecutor.execute(@current_code_content, @current_block_lang, @temp_dir, @input_file_path, @current_block_explain)
       add_result_block(result_output, blank_line_before_new_result)
     else
       warn "Skipping empty code block for language '#{@current_block_lang}'."
@@ -254,6 +260,7 @@ class MarkdownProcessor
     @current_code_content = ""
     @current_block_rerun = false
     @current_block_run = true
+    @current_block_explain = false
   end
 
   def stderr_has_content?(stderr_output)

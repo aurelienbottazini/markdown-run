@@ -359,4 +359,50 @@ class TestMarkdownRun < Minitest::Test
     # Since run=false, the code should not execute and the result should remain unchanged
     refute file_content.match?(/Execution test: \d+/), "run=false should prevent execution and result generation"
   end
+
+  def test_explain_option_syntax
+    # Test explain option parsing for psql
+    skip("PostgreSQL not available") unless system("command -v psql > /dev/null 2>&1")
+
+    # Test 1: Standalone explain option
+    test_file_1 = File.join(@temp_dir, "test_explain_standalone.md")
+    md_content_standalone = <<~MARKDOWN
+      ```psql explain
+      SELECT 1 as simple_test;
+      ```
+    MARKDOWN
+    File.write(test_file_1, md_content_standalone)
+    MarkdownRun.run_code_blocks(test_file_1)
+
+    file_content = File.read(test_file_1)
+    assert file_content.include?("```RESULT"), "Result block should be created for explain query"
+    # We can't test for specific explain output since it depends on PostgreSQL being configured
+
+    # Test 2: Explicit explain=true option
+    test_file_2 = File.join(@temp_dir, "test_explain_explicit.md")
+    md_content_explicit = <<~MARKDOWN
+      ```psql explain=true
+      SELECT version();
+      ```
+    MARKDOWN
+    File.write(test_file_2, md_content_explicit)
+    MarkdownRun.run_code_blocks(test_file_2)
+
+    file_content = File.read(test_file_2)
+    assert file_content.include?("```RESULT"), "Result block should be created for explicit explain=true"
+
+    # Test 3: Explicit explain=false should work normally
+    test_file_3 = File.join(@temp_dir, "test_explain_false.md")
+    md_content_false = <<~MARKDOWN
+      ```psql explain=false
+      SELECT 'normal query' as test;
+      ```
+    MARKDOWN
+    File.write(test_file_3, md_content_false)
+    MarkdownRun.run_code_blocks(test_file_3)
+
+    file_content = File.read(test_file_3)
+    assert file_content.include?("```RESULT"), "Result block should be created for normal query"
+    assert file_content.include?("normal query"), "Output should contain the query result"
+  end
 end

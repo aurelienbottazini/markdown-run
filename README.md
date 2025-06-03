@@ -57,8 +57,19 @@ example vscode keybinding
 
 - `run=true` or `run=false` to control whether a code block should be executed at all. `run=true` is the default if not specified
 - `rerun=true` or `rerun=false` to control whether a code block should be re-executed if a result block already exists. `rerun=false` is the default if not specified
+- `explain=true` or `explain=false` for psql code blocks to generate query execution plans with Dalibo visualization links. `explain=false` is the default if not specified
 
 Options can be combined. If `run=false` is specified, the code block will not execute regardless of the `rerun` setting.
+
+### Standalone Option Syntax
+
+Options can also be specified using standalone syntax without explicit `=true`:
+
+- `run` is equivalent to `run=true`
+- `rerun` is equivalent to `rerun=true`
+- `explain` is equivalent to `explain=true`
+
+Explicit assignments (e.g., `run=false`) take precedence over standalone options.
 
 Examples:
 
@@ -66,12 +77,20 @@ Examples:
 console.log("This will not execute at all");
 ```
 
-```js rerun=true
+```js rerun
 console.log("This will re-execute even if result exists");
 ```
 
 ```js run=true rerun=false
 console.log("This will execute only if no result exists");
+```
+
+```psql explain
+SELECT * FROM users WHERE id = 1;
+```
+
+```psql explain=true
+EXPLAIN (ANALYZE) SELECT * FROM large_table;
 ```
 
 ### Mermaid diagrams

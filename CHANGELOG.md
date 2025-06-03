@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+- standalone options for codeblocks (run instead of run=true)
+- explain option for psql code blocks with Dalibo visualization links
+- Fixed Dalibo URL generation to properly submit plans via HTTP POST
+
 ## [0.1.9] - 2025-06-02
 
 - mermaid codeblocks

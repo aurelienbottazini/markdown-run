@@ -3,11 +3,11 @@ require "open3"
 require_relative "language_configs"
 
 class CodeExecutor
-  def self.execute(code_content, lang, temp_dir, input_file_path = nil)
-    new.execute(code_content, lang, temp_dir, input_file_path)
+  def self.execute(code_content, lang, temp_dir, input_file_path = nil, explain = false)
+    new.execute(code_content, lang, temp_dir, input_file_path, explain)
   end
 
-  def execute(code_content, lang, temp_dir, input_file_path = nil)
+  def execute(code_content, lang, temp_dir, input_file_path = nil, explain = false)
     lang_key = lang.downcase
     lang_config = SUPPORTED_LANGUAGES[lang_key]
 
@@ -15,8 +15,8 @@ class CodeExecutor
 
     warn "Executing #{lang_key} code block..."
 
-    result = execute_with_config(code_content, lang_config, temp_dir, lang_key, input_file_path)
-    process_execution_result(result, lang_config, lang_key)
+    result = execute_with_config(code_content, lang_config, temp_dir, lang_key, input_file_path, explain)
+    process_execution_result(result, lang_config, lang_key, explain)
   end
 
   private
@@ -26,23 +26,23 @@ class CodeExecutor
     "ERROR: Unsupported language: #{lang}"
   end
 
-  def execute_with_config(code_content, lang_config, temp_dir, lang_key, input_file_path = nil)
+  def execute_with_config(code_content, lang_config, temp_dir, lang_key, input_file_path = nil, explain = false)
     cmd_lambda = lang_config[:command]
     temp_file_suffix = lang_config[:temp_file_suffix]
 
     if temp_file_suffix
-      execute_with_temp_file(code_content, cmd_lambda, temp_file_suffix, temp_dir, lang_key, input_file_path)
+      execute_with_temp_file(code_content, cmd_lambda, temp_file_suffix, temp_dir, lang_key, input_file_path, explain)
     else
-      execute_direct_command(code_content, cmd_lambda)
+      execute_direct_command(code_content, cmd_lambda, explain)
     end
   end
 
-  def execute_with_temp_file(code_content, cmd_lambda, temp_file_suffix, temp_dir, lang_key, input_file_path = nil)
+  def execute_with_temp_file(code_content, cmd_lambda, temp_file_suffix, temp_dir, lang_key, input_file_path = nil, explain = false)
     result = nil
     Tempfile.create([lang_key, temp_file_suffix], temp_dir) do |temp_file|
       temp_file.write(code_content)
       temp_file.close
-      command_to_run, exec_options = cmd_lambda.call(code_content, temp_file.path, input_file_path)
+      command_to_run, exec_options = cmd_lambda.call(code_content, temp_file.path, input_file_path, explain)
 
       # Extract output_path if present (for mermaid)
       output_path = exec_options.delete(:output_path) if exec_options.is_a?(Hash)
@@ -58,19 +58,21 @@ class CodeExecutor
     result
   end
 
-  def execute_direct_command(code_content, cmd_lambda)
-    command_to_run, exec_options = cmd_lambda.call(code_content, nil)
+  def execute_direct_command(code_content, cmd_lambda, explain = false)
+    command_to_run, exec_options = cmd_lambda.call(code_content, nil, nil, explain)
     captured_stdout, captured_stderr, captured_status_obj = Open3.capture3(command_to_run, **exec_options)
     { stdout: captured_stdout, stderr: captured_stderr, status: captured_status_obj }
   end
 
-  def process_execution_result(result, lang_config, lang_key)
+  def process_execution_result(result, lang_config, lang_key, explain = false)
     exit_status, result_output, stderr_output = format_captured_output(result, lang_config)
 
     if exit_status != 0
       result_output = add_error_to_output(exit_status, lang_config, lang_key, result_output, stderr_output)
     elsif lang_config && lang_config[:result_handling] == :mermaid_svg
       result_output = handle_mermaid_svg_result(result, lang_key)
+    elsif explain && lang_key == "psql"
+      result_output = handle_psql_explain_result(result_output)
     end
 
     result_output
@@ -118,7 +120,7 @@ class CodeExecutor
     # If the SVG is in a subdirectory, include the directory in the path
     output_dir = File.dirname(output_path)
     svg_filename = File.basename(output_path)
-    
+
     # Check if SVG is in a subdirectory (new behavior) or same directory (fallback)
     parent_dir = File.dirname(output_dir)
     if File.basename(output_dir) != File.basename(parent_dir)
@@ -128,10 +130,83 @@ class CodeExecutor
       # SVG is in same directory (fallback behavior)
       relative_path = svg_filename
     end
-    
+
     warn "Generated Mermaid SVG: #{relative_path}"
 
     # Return markdown image tag instead of typical result content
     "![Mermaid Diagram](#{relative_path})"
+  end
+
+  def handle_psql_explain_result(result_output)
+    require 'json'
+    require 'net/http'
+    require 'uri'
+
+    # Try to parse the result as JSON (EXPLAIN output)
+    begin
+      # Clean up the result output and try to parse as JSON
+      json_data = JSON.parse(result_output.strip)
+
+      # Submit plan to Dalibo via POST request
+      dalibo_url = submit_plan_to_dalibo(JSON.generate(json_data))
+
+      if dalibo_url
+        # Return both the original output and the Dalibo link
+        "#{result_output.strip}\n\n**Dalibo Visualization:** [View Query Plan](#{dalibo_url})"
+      else
+        # If submission failed, just return the original output
+        result_output
+      end
+    rescue JSON::ParserError
+      # If it's not valid JSON, just return the original output
+      result_output
+    end
+  end
+
+  private
+
+  def submit_plan_to_dalibo(plan_json)
+    begin
+      # Start with HTTPS directly to avoid the HTTP->HTTPS redirect
+      uri = URI('https://explain.dalibo.com/new')
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = true
+      http.read_timeout = 10  # 10 seconds timeout
+
+      # Prepare the JSON payload
+      payload = {
+        'plan' => plan_json,
+        'title' => "Query Plan - #{Time.now.strftime('%Y-%m-%d %H:%M:%S')}",
+        'query' => ''
+      }
+
+      # Create the POST request
+      request = Net::HTTP::Post.new(uri)
+      request['Content-Type'] = 'application/json'
+      request.body = JSON.generate(payload)
+
+      # Send the request and follow redirects to get the final URL
+      response = http.request(request)
+      
+      # Dalibo returns a redirect to the plan URL
+      if response.is_a?(Net::HTTPRedirection)
+        location = response['location']
+        # Make sure it's a full URL
+        if location
+          if location.start_with?('/')
+            location = "https://explain.dalibo.com#{location}"
+          end
+          location
+        else
+          nil
+        end
+      else
+        warn "Failed to submit plan to Dalibo: #{response.code} #{response.message}"
+        nil
+      end
+    rescue => e
+      warn "Error submitting plan to Dalibo: #{e.message}"
+      nil
+    end
   end
 end

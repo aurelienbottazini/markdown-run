@@ -42,6 +42,10 @@ class CodeBlockParser
     parse_boolean_option(options_string, "rerun", false)
   end
 
+  def parse_explain_option(options_string)
+    parse_boolean_option(options_string, "explain", false)
+  end
+
   private
 
   def resolve_language(lang)
