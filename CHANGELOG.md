@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [0.1.10] - 2025-06-03
+
 - standalone options for codeblocks (run instead of run=true)
 - explain option for psql code blocks with Dalibo visualization links
 - Fixed Dalibo URL generation to properly submit plans via HTTP POST
