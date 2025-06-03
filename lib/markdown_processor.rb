@@ -183,19 +183,22 @@ class MarkdownProcessor
       # If we consumed lines for rerun, don't add them to output (they'll be replaced)
       execute_and_add_result(decision[:blank_line])
     else
-      skip_and_pass_through_result(decision[:lines_to_pass_through], file_enum)
+      skip_and_pass_through_result(decision[:lines_to_pass_through], file_enum, decision)
     end
 
     reset_code_block_state
   end
 
   def decide_execution(file_enum)
-    decider = ExecutionDecider.new(@current_block_run, @current_block_rerun, @current_block_lang)
+    decider = ExecutionDecider.new(@current_block_run, @current_block_rerun, @current_block_lang, @current_block_explain, @current_block_result)
     decision = decider.decide(file_enum, method(:result_block_regex))
 
     # Handle the consume_existing flag for rerun scenarios
     if decision[:consume_existing]
       consume_existing_result_block(file_enum, decision[:consumed_lines])
+    elsif decision[:consume_existing_dalibo]
+      # Dalibo links are already consumed in the decision process
+      # Just acknowledge they were consumed
     end
 
     decision
@@ -229,10 +232,18 @@ class MarkdownProcessor
     end
   end
 
-  def skip_and_pass_through_result(lines_to_pass_through, file_enum)
+  def skip_and_pass_through_result(lines_to_pass_through, file_enum, decision = nil)
     # Handle run=false case where there are no lines to pass through
     if lines_to_pass_through.empty?
       warn "Skipping execution due to run=false option."
+      return
+    end
+
+    # Check if this is Dalibo content
+    if decision && decision[:dalibo_content]
+      warn "Found existing Dalibo link for current #{@current_block_lang} block, skipping execution."
+      @output_lines.concat(lines_to_pass_through)
+      # No additional consumption needed for Dalibo links
       return
     end
 
