@@ -17,6 +17,7 @@ class MarkdownProcessor
     @current_block_rerun = false
     @current_block_run = true
     @current_block_explain = false
+    @current_block_result = true
     @frontmatter_parser = FrontmatterParser.new
     @code_block_parser = CodeBlockParser.new(@frontmatter_parser)
   end
@@ -108,6 +109,10 @@ class MarkdownProcessor
     @code_block_parser.parse_explain_option(options_string)
   end
 
+  def parse_result_option(options_string)
+    @code_block_parser.parse_result_option(options_string)
+  end
+
   def handle_line(current_line, file_enum)
     case @state
     when :outside_code_block
@@ -159,6 +164,7 @@ class MarkdownProcessor
     @current_block_rerun = parse_rerun_option(options_string)
     @current_block_run = parse_run_option(options_string)
     @current_block_explain = parse_explain_option(options_string)
+    @current_block_result = parse_result_option(options_string)
     @state = :inside_code_block
     @current_code_content = ""
   end
@@ -200,16 +206,23 @@ class MarkdownProcessor
 
     if has_content?(@current_code_content)
       result_output = CodeExecutor.execute(@current_code_content, @current_block_lang, @temp_dir, @input_file_path, @current_block_explain)
-      
+
       # Check if result contains a Dalibo link for psql explain queries
       dalibo_link, clean_result = extract_dalibo_link(result_output)
-      
-      # Always add the result block first
-      add_result_block(clean_result || result_output, blank_line_before_new_result)
-      
-      # Then add Dalibo link after the result block if it exists
+
+      # Add the result block only if result=true (default)
+      if @current_block_result
+        add_result_block(clean_result || result_output, blank_line_before_new_result)
+      end
+
+      # Always add Dalibo link if it exists, even when result=false
       if dalibo_link
-        @output_lines << "#{dalibo_link}\n\n"
+        # Add appropriate spacing based on whether result block was shown
+        if @current_block_result
+          @output_lines << "#{dalibo_link}\n\n"
+        else
+          @output_lines << "\n#{dalibo_link}\n\n"
+        end
       end
     else
       warn "Skipping empty code block for language '#{@current_block_lang}'."
@@ -251,7 +264,7 @@ class MarkdownProcessor
     consume_block_lines(file_enum) do |line|
       consumed_lines << line
     end
-    
+
     # After consuming the result block, check if there's a Dalibo link to consume as well
     consume_dalibo_link_if_present(file_enum, consumed_lines)
   end
@@ -274,6 +287,7 @@ class MarkdownProcessor
     @current_block_rerun = false
     @current_block_run = true
     @current_block_explain = false
+    @current_block_result = true
   end
 
   def stderr_has_content?(stderr_output)
@@ -299,7 +313,7 @@ class MarkdownProcessor
       # Keep consuming blank lines and Dalibo links until we hit something else
       loop do
         next_line = peek_next_line(file_enum)
-        
+
         if is_blank_line?(next_line)
           consumed_lines << file_enum.next
         elsif next_line&.start_with?("**Dalibo Visualization:**")

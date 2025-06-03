@@ -405,4 +405,86 @@ class TestMarkdownRun < Minitest::Test
     assert file_content.include?("```RESULT"), "Result block should be created for normal query"
     assert file_content.include?("normal query"), "Output should contain the query result"
   end
+
+  def test_result_option
+    # Test 1: result=false should hide the result block but still execute code
+    md_content_result_false = <<~MARKDOWN
+      ```ruby result=false run
+      puts "This result should be hidden"
+      ```
+    MARKDOWN
+    test_file_1 = File.join(@temp_dir, "test_result_false.md")
+    File.write(test_file_1, md_content_result_false)
+    MarkdownRun.run_code_blocks(test_file_1)
+
+    file_content = File.read(test_file_1)
+    assert file_content.include?("```ruby result=false run"), "Original code block should be preserved"
+    refute file_content.include?("```ruby RESULT"), "Result block should not be created when result=false"
+    # The code executes but the result block is hidden, so we don't check for output
+
+    # Test 2: result=true should show the result block (explicit true)
+    md_content_result_true = <<~MARKDOWN
+      ```ruby result=true run
+      puts "This result should be visible"
+      ```
+    MARKDOWN
+    test_file_2 = File.join(@temp_dir, "test_result_true.md")
+    File.write(test_file_2, md_content_result_true)
+    MarkdownRun.run_code_blocks(test_file_2)
+
+    file_content = File.read(test_file_2)
+    assert file_content.include?("```ruby result=true run"), "Original code block should be preserved"
+    assert file_content.include?("```ruby RESULT"), "Result block should be created when result=true"
+    assert file_content.include?("This result should be visible"), "Result output should appear"
+
+    # Test 3: Default behavior (no result option) should show result block
+    md_content_default = <<~MARKDOWN
+      ```ruby run
+      puts "Default behavior result"
+      ```
+    MARKDOWN
+    test_file_3 = File.join(@temp_dir, "test_result_default.md")
+    File.write(test_file_3, md_content_default)
+    MarkdownRun.run_code_blocks(test_file_3)
+
+    file_content = File.read(test_file_3)
+    assert file_content.include?("```ruby run"), "Original code block should be preserved"
+    assert file_content.include?("```ruby RESULT"), "Result block should be created by default"
+    assert file_content.include?("Default behavior result"), "Result output should appear by default"
+
+    # Test 4: Standalone result option should default to true
+    md_content_standalone = <<~MARKDOWN
+      ```ruby result run
+      puts "Standalone result option"
+      ```
+    MARKDOWN
+    test_file_4 = File.join(@temp_dir, "test_result_standalone.md")
+    File.write(test_file_4, md_content_standalone)
+    MarkdownRun.run_code_blocks(test_file_4)
+
+    file_content = File.read(test_file_4)
+    assert file_content.include?("```ruby result run"), "Original code block should be preserved"
+    assert file_content.include?("```ruby RESULT"), "Result block should be created for standalone result"
+    assert file_content.include?("Standalone result option"), "Result output should appear for standalone result"
+  end
+
+  def test_result_option_with_psql_explain
+    skip("PostgreSQL not available") unless system("command -v psql > /dev/null 2>&1")
+
+    # Test result=false with explain should hide result but show Dalibo link
+    md_content_explain_result_false = <<~MARKDOWN
+      ```psql result=false explain run
+      SELECT 'explain with hidden result' as test;
+      ```
+    MARKDOWN
+    test_file = File.join(@temp_dir, "test_explain_result_false.md")
+    File.write(test_file, md_content_explain_result_false)
+    MarkdownRun.run_code_blocks(test_file)
+
+    file_content = File.read(test_file)
+    assert file_content.include?("```psql result=false explain run"), "Original code block should be preserved"
+    refute file_content.include?("```RESULT"), "Result block should not be created when result=false"
+    # The code executes but the result block is hidden, so we don't check for query output
+    # Note: Dalibo link testing would require actual PostgreSQL connection and explain output
+  end
 end

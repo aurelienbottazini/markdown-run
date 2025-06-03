@@ -46,6 +46,10 @@ class CodeBlockParser
     parse_boolean_option(options_string, "explain", false)
   end
 
+  def parse_result_option(options_string)
+    parse_boolean_option(options_string, "result", true)
+  end
+
   private
 
   def resolve_language(lang)

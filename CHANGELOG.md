@@ -3,6 +3,7 @@
 - standalone options for codeblocks (run instead of run=true)
 - explain option for psql code blocks with Dalibo visualization links
 - Fixed Dalibo URL generation to properly submit plans via HTTP POST
+- Added result option to control result block visibility (result=false hides result blocks while still executing code)
 
 ## [0.1.9] - 2025-06-02
 

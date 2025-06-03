@@ -57,9 +57,10 @@ example vscode keybinding
 
 - `run=true` or `run=false` to control whether a code block should be executed at all. `run=true` is the default if not specified
 - `rerun=true` or `rerun=false` to control whether a code block should be re-executed if a result block already exists. `rerun=false` is the default if not specified
+- `result=true` or `result=false` to control whether the result block should be displayed after execution. `result=true` is the default if not specified. When `result=false`, the code still executes but the result block is hidden
 - `explain=true` or `explain=false` for psql code blocks to generate query execution plans with Dalibo visualization links. `explain=false` is the default if not specified
 
-Options can be combined. If `run=false` is specified, the code block will not execute regardless of the `rerun` setting.
+Options can be combined. If `run=false` is specified, the code block will not execute regardless of the `rerun` setting. The `result` option only affects display of the result block, not code execution.
 
 ### Standalone Option Syntax
 
@@ -67,6 +68,7 @@ Options can also be specified using standalone syntax without explicit `=true`:
 
 - `run` is equivalent to `run=true`
 - `rerun` is equivalent to `rerun=true`
+- `result` is equivalent to `result=true`
 - `explain` is equivalent to `explain=true`
 
 Explicit assignments (e.g., `run=false`) take precedence over standalone options.
@@ -85,12 +87,21 @@ console.log("This will re-execute even if result exists");
 console.log("This will execute only if no result exists");
 ```
 
+```ruby result=false run
+puts "This executes but the result block is hidden"
+```
+
 ```psql explain
 SELECT * FROM users WHERE id = 1;
 ```
 
 ```psql explain=true
 EXPLAIN (ANALYZE) SELECT * FROM large_table;
+```
+
+```psql result=false explain
+SELECT * FROM large_table;
+-- This will execute the explain query and show the Dalibo link but hide the result block
 ```
 
 ### Mermaid diagrams

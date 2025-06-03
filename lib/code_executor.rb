@@ -187,7 +187,7 @@ class CodeExecutor
 
       # Send the request and follow redirects to get the final URL
       response = http.request(request)
-      
+
       # Dalibo returns a redirect to the plan URL
       if response.is_a?(Net::HTTPRedirection)
         location = response['location']
