@@ -44,4 +44,19 @@ module CodeBlockHelper
 
     reset_code_block_state
   end
+
+  def decide_execution(file_enum)
+    decider = ExecutionDecider.new(@current_block_run, @current_block_rerun, @current_block_lang, @current_block_explain, @current_block_result)
+    decision = decider.decide(file_enum, method(:result_block_regex))
+
+    # Handle the consume_existing flag for rerun scenarios
+    if decision[:consume_existing]
+      consume_existing_result_block(file_enum, decision[:consumed_lines])
+    elsif decision[:consume_existing_dalibo]
+      # Dalibo links are already consumed in the decision process
+      # Just acknowledge they were consumed
+    end
+
+    decision
+  end
 end

@@ -89,35 +89,4 @@ class MarkdownProcessor
       accumulate_code_content(current_line)
     end
   end
-
-  def decide_execution(file_enum)
-    decider = ExecutionDecider.new(@current_block_run, @current_block_rerun, @current_block_lang, @current_block_explain, @current_block_result)
-    decision = decider.decide(file_enum, method(:result_block_regex))
-
-    # Handle the consume_existing flag for rerun scenarios
-    if decision[:consume_existing]
-      consume_existing_result_block(file_enum, decision[:consumed_lines])
-    elsif decision[:consume_existing_dalibo]
-      # Dalibo links are already consumed in the decision process
-      # Just acknowledge they were consumed
-    end
-
-    decision
-  end
-
-  def consume_block_lines(file_enum)
-    begin
-      loop do
-        result_block_line = file_enum.next
-        yield result_block_line
-        break if is_block_end?(result_block_line)
-      end
-    rescue StopIteration
-      warn "Warning: End of file reached while consuming result block."
-    end
-  end
-
-  def stderr_has_content?(stderr_output)
-    stderr_output && !stderr_output.strip.empty?
-  end
 end

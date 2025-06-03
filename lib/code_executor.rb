@@ -21,6 +21,12 @@ class CodeExecutor
 
   private
 
+
+
+  def stderr_has_content?(stderr_output)
+    stderr_output && !stderr_output.strip.empty?
+  end
+
   def handle_unsupported_language(lang)
     warn "Unsupported language: #{lang}"
     "ERROR: Unsupported language: #{lang}"

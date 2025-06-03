@@ -125,4 +125,17 @@ module ResultHelper
 
     consume_dalibo_link_if_present(file_enum, consumed_lines)
   end
+
+
+  def consume_block_lines(file_enum)
+    begin
+      loop do
+        result_block_line = file_enum.next
+        yield result_block_line
+        break if is_block_end?(result_block_line)
+      end
+    rescue StopIteration
+      warn "Warning: End of file reached while consuming result block."
+    end
+  end
 end
