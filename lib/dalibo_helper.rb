@@ -1,11 +1,13 @@
 module DaliboHelper
   private
 
+  DALIBO_LINK_PREFIX = "DALIBO_LINK:"
+
   def extract_dalibo_link(result_output)
     # Check if the result contains a Dalibo link marker
-    if result_output.start_with?("DALIBO_LINK:")
+    if result_output.start_with?(DALIBO_LINK_PREFIX)
       lines = result_output.split("\n", 2)
-      dalibo_url = lines[0].sub("DALIBO_LINK:", "")
+      dalibo_url = lines[0].sub(DALIBO_LINK_PREFIX, "")
       clean_result = lines[1] || ""
       dalibo_link = "**Dalibo Visualization:** [View Query Plan](#{dalibo_url})"
       [dalibo_link, clean_result]

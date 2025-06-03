@@ -5,22 +5,19 @@ require_relative "code_executor"
 require_relative "execution_decider"
 require_relative "enum_helper"
 require_relative "dalibo_helper"
+require_relative "code_block_state_helper"
 
 class MarkdownProcessor
   include EnumHelper
   include DaliboHelper
+  include CodeBlockStateHelper
 
   def initialize(temp_dir, input_file_path = nil)
     @temp_dir = temp_dir
     @input_file_path = input_file_path
     @output_lines = []
-    @state = :outside_code_block
-    @current_block_lang = ""
-    @current_code_content = ""
-    @current_block_rerun = false
-    @current_block_run = true
-    @current_block_explain = false
-    @current_block_result = true
+    reset_code_block_state
+
     @frontmatter_parser = FrontmatterParser.new
     @code_block_parser = CodeBlockParser.new(@frontmatter_parser)
   end
@@ -293,15 +290,6 @@ class MarkdownProcessor
     rescue StopIteration
       warn "Warning: End of file reached while consuming result block."
     end
-  end
-
-  def reset_code_block_state
-    @state = :outside_code_block
-    @current_code_content = ""
-    @current_block_rerun = false
-    @current_block_run = true
-    @current_block_explain = false
-    @current_block_result = true
   end
 
   def stderr_has_content?(stderr_output)
