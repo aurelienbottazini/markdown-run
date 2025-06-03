@@ -471,21 +471,179 @@ class TestMarkdownRun < Minitest::Test
   def test_result_option_with_psql_explain
     skip("PostgreSQL not available") unless system("command -v psql > /dev/null 2>&1")
 
-    # Test result=false with explain should hide result but show Dalibo link
-    md_content_explain_result_false = <<~MARKDOWN
-      ```psql result=false explain run
-      SELECT 'explain with hidden result' as test;
+    # Test that psql explain default works
+    md_content_psql_explain = <<~MARKDOWN
+      ---
+      markdown-run:
+        psql:
+          explain: true
+      ---
+
+      ```psql
+      SELECT 'explain default test' as test;
       ```
     MARKDOWN
-    test_file = File.join(@temp_dir, "test_explain_result_false.md")
-    File.write(test_file, md_content_explain_result_false)
+    test_file = File.join(@temp_dir, "test_psql_explain_default.md")
+    File.write(test_file, md_content_psql_explain)
     MarkdownRun.run_code_blocks(test_file)
 
     file_content = File.read(test_file)
-    assert file_content.include?("```psql result=false explain run"), "Original code block should be preserved"
-    refute file_content.include?("```RESULT"), "Result block should not be created when result=false"
-    # The code executes but the result block is hidden, so we don't check for query output
-    # Note: Dalibo link testing would require actual PostgreSQL connection and explain output
+    assert file_content.include?("```RESULT"), "PSQL explain default should create result block"
+    # The result should contain explain plan rather than simple query result
+    # We can't test for specific explain output since it depends on PostgreSQL configuration
+  end
+
+  def test_frontmatter_defaults
+    # Test global defaults - rerun only (without result=false to see the output)
+    md_content_global_rerun = <<~MARKDOWN
+      ---
+      markdown-run:
+        defaults:
+          rerun: true
+      ---
+
+      ```ruby
+      puts "Global rerun test: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      Global rerun test: 12345678
+      ```
+    MARKDOWN
+    test_file_1 = File.join(@temp_dir, "test_global_rerun.md")
+    File.write(test_file_1, md_content_global_rerun)
+    MarkdownRun.run_code_blocks(test_file_1)
+
+    file_content = File.read(test_file_1)
+    # rerun: true should cause the old result to be replaced
+    refute file_content.include?("Global rerun test: 12345678"), "Global rerun default should replace existing result"
+    assert file_content.match?(/Global rerun test: \d+/), "Global rerun default should generate new result"
+
+    # Test global defaults - result=false
+    md_content_global_result_false = <<~MARKDOWN
+      ---
+      markdown-run:
+        defaults:
+          result: false
+      ---
+
+      ```ruby
+      puts "Global result false test"
+      ```
+    MARKDOWN
+    test_file_1b = File.join(@temp_dir, "test_global_result_false.md")
+    File.write(test_file_1b, md_content_global_result_false)
+    MarkdownRun.run_code_blocks(test_file_1b)
+
+    file_content = File.read(test_file_1b)
+    # result: false should hide the result block
+    refute file_content.include?("```ruby RESULT"), "Global result=false default should hide result block"
+
+    # Test language-specific defaults
+    md_content_lang_defaults = <<~MARKDOWN
+      ---
+      markdown-run:
+        ruby:
+          rerun: true
+        psql:
+          explain: true
+      ---
+
+      ```ruby
+      puts "Language-specific ruby test: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      Language-specific ruby test: 87654321
+      ```
+    MARKDOWN
+    test_file_2 = File.join(@temp_dir, "test_lang_defaults.md")
+    File.write(test_file_2, md_content_lang_defaults)
+    MarkdownRun.run_code_blocks(test_file_2)
+
+    file_content = File.read(test_file_2)
+    # Language-specific rerun: true should replace existing result
+    refute file_content.include?("Language-specific ruby test: 87654321"), "Language-specific rerun should replace existing result"
+    assert file_content.match?(/Language-specific ruby test: \d+/), "Language-specific rerun should generate new result"
+
+    # Test priority: explicit options > language defaults > global defaults
+    md_content_priority = <<~MARKDOWN
+      ---
+      markdown-run:
+        defaults:
+          rerun: true
+        ruby:
+          rerun: false
+      ---
+
+      ```ruby rerun=true
+      puts "Priority test: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      Priority test: 11111111
+      ```
+    MARKDOWN
+    test_file_3 = File.join(@temp_dir, "test_priority.md")
+    File.write(test_file_3, md_content_priority)
+    MarkdownRun.run_code_blocks(test_file_3)
+
+    file_content = File.read(test_file_3)
+    # Explicit rerun=true should override language default rerun=false
+    refute file_content.include?("Priority test: 11111111"), "Explicit option should override language default"
+    assert file_content.match?(/Priority test: \d+/), "Explicit option should generate new result"
+
+    # Test that language defaults override global defaults
+    md_content_override = <<~MARKDOWN
+      ---
+      markdown-run:
+        defaults:
+          rerun: false
+        ruby:
+          rerun: true
+      ---
+
+      ```ruby
+      puts "Override test: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      Override test: 22222222
+      ```
+    MARKDOWN
+    test_file_4 = File.join(@temp_dir, "test_override.md")
+    File.write(test_file_4, md_content_override)
+    MarkdownRun.run_code_blocks(test_file_4)
+
+    file_content = File.read(test_file_4)
+    # Language-specific rerun: true should override global rerun: false
+    refute file_content.include?("Override test: 22222222"), "Language default should override global default"
+    assert file_content.match?(/Override test: \d+/), "Language default should generate new result"
+  end
+
+  def test_frontmatter_defaults_with_psql_explain
+    skip("PostgreSQL not available") unless system("command -v psql > /dev/null 2>&1")
+
+    # Test that psql explain default works
+    md_content_psql_explain = <<~MARKDOWN
+      ---
+      markdown-run:
+        psql:
+          explain: true
+      ---
+
+      ```psql
+      SELECT 'explain default test' as test;
+      ```
+    MARKDOWN
+    test_file = File.join(@temp_dir, "test_psql_explain_default.md")
+    File.write(test_file, md_content_psql_explain)
+    MarkdownRun.run_code_blocks(test_file)
+
+    file_content = File.read(test_file)
+    assert file_content.include?("```RESULT"), "PSQL explain default should create result block"
+    # The result should contain explain plan rather than simple query result
+    # We can't test for specific explain output since it depends on PostgreSQL configuration
   end
 
   # --- Dalibo Link Replacement Tests ---

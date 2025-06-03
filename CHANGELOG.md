@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- options are customizable with the yaml frontmatter
+
 ## [0.1.10] - 2025-06-03
 
 - standalone options for codeblocks (run instead of run=true)

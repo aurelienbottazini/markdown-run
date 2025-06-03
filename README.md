@@ -135,6 +135,65 @@ markdown-run:
     - sql: psql
 ```
 
+### Setting Defaults
+
+You can override the default behavior for code block options using frontmatter:
+
+```yaml
+markdown-run:
+  defaults:
+    rerun: true
+    result: false
+  psql:
+    explain: true
+  ruby:
+    rerun: false
+```
+
+**Priority order (highest to lowest):**
+
+1. Explicit options in code blocks (e.g., `rerun=true`)
+2. Language-specific defaults (e.g., `psql: { explain: true }`)
+3. Global defaults (e.g., `defaults: { rerun: true }`)
+4. Built-in application defaults
+
+**Available options for defaults:**
+
+- `run`: Control whether code blocks execute (default: `true`)
+- `rerun`: Control whether to re-execute if result exists (default: `false`)
+- `result`: Control whether to show result blocks (default: `true`)
+- `explain`: For psql blocks, generate explain plans (default: `false`)
+
+**Examples:**
+
+Make all code blocks rerun by default:
+
+```yaml
+markdown-run:
+  defaults:
+    rerun: true
+```
+
+Hide result blocks by default but enable explain for psql:
+
+```yaml
+markdown-run:
+  defaults:
+    result: false
+  psql:
+    explain: true
+```
+
+Language-specific settings override global defaults:
+
+```yaml
+markdown-run:
+  defaults:
+    rerun: false # Global default
+  ruby:
+    rerun: true # Ruby blocks will rerun, others won't
+```
+
 ## Demo
 
 ![VSCode Usage](docs/markdown-run-vscode.gif)

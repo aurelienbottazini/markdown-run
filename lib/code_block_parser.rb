@@ -34,20 +34,24 @@ class CodeBlockParser
     line.strip == BLOCK_END_PATTERN
   end
 
-  def parse_run_option(options_string)
-    parse_boolean_option(options_string, "run", true)
+  def parse_run_option(options_string, language = nil)
+    default_value = @frontmatter_parser.get_default_value("run", language, true)
+    parse_boolean_option(options_string, "run", default_value)
   end
 
-  def parse_rerun_option(options_string)
-    parse_boolean_option(options_string, "rerun", false)
+  def parse_rerun_option(options_string, language = nil)
+    default_value = @frontmatter_parser.get_default_value("rerun", language, false)
+    parse_boolean_option(options_string, "rerun", default_value)
   end
 
-  def parse_explain_option(options_string)
-    parse_boolean_option(options_string, "explain", false)
+  def parse_explain_option(options_string, language = nil)
+    default_value = @frontmatter_parser.get_default_value("explain", language, false)
+    parse_boolean_option(options_string, "explain", default_value)
   end
 
-  def parse_result_option(options_string)
-    parse_boolean_option(options_string, "result", true)
+  def parse_result_option(options_string, language = nil)
+    default_value = @frontmatter_parser.get_default_value("result", language, true)
+    parse_boolean_option(options_string, "result", default_value)
   end
 
   private

@@ -17,10 +17,10 @@ module CodeBlockHelper
   def start_code_block(current_line, lang, options_string = nil)
     @output_lines << current_line
     @current_block_lang = resolve_language(lang)
-    @current_block_rerun = @code_block_parser.parse_rerun_option(options_string)
-    @current_block_run = @code_block_parser.parse_run_option(options_string)
-    @current_block_explain = @code_block_parser.parse_explain_option(options_string)
-    @current_block_result = @code_block_parser.parse_result_option(options_string)
+    @current_block_rerun = @code_block_parser.parse_rerun_option(options_string, @current_block_lang)
+    @current_block_run = @code_block_parser.parse_run_option(options_string, @current_block_lang)
+    @current_block_explain = @code_block_parser.parse_explain_option(options_string, @current_block_lang)
+    @current_block_result = @code_block_parser.parse_result_option(options_string, @current_block_lang)
     @state = :inside_code_block
     @current_code_content = ""
   end
