@@ -151,8 +151,8 @@ class CodeExecutor
       dalibo_url = submit_plan_to_dalibo(JSON.generate(json_data))
 
       if dalibo_url
-        # Return both the original output and the Dalibo link
-        "#{result_output.strip}\n\n**Dalibo Visualization:** [View Query Plan](#{dalibo_url})"
+        # Return a special format that the markdown processor can parse
+        "DALIBO_LINK:#{dalibo_url}\n#{result_output.strip}"
       else
         # If submission failed, just return the original output
         result_output
