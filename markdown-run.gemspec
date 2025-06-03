@@ -36,6 +36,7 @@ Gem::Specification.new do |spec|
   spec.require_paths = [ "lib" ]
 
   spec.add_dependency 'rcodetools', '0.8.5'
+  spec.add_dependency 'ostruct', '0.6.1'
 
   spec.add_development_dependency 'minitest', "5.25.5"
   spec.add_development_dependency 'rake'
