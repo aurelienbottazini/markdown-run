@@ -167,31 +167,25 @@ class CodeExecutor
 
   def submit_plan_to_dalibo(plan_json)
     begin
-      # Start with HTTPS directly to avoid the HTTP->HTTPS redirect
       uri = URI('https://explain.dalibo.com/new')
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = true
-      http.read_timeout = 10  # 10 seconds timeout
+      http.read_timeout = 10
 
-      # Prepare the JSON payload
       payload = {
         'plan' => plan_json,
         'title' => "Query Plan - #{Time.now.strftime('%Y-%m-%d %H:%M:%S')}",
         'query' => ''
       }
 
-      # Create the POST request
       request = Net::HTTP::Post.new(uri)
       request['Content-Type'] = 'application/json'
       request.body = JSON.generate(payload)
 
-      # Send the request and follow redirects to get the final URL
       response = http.request(request)
 
-      # Dalibo returns a redirect to the plan URL
       if response.is_a?(Net::HTTPRedirection)
         location = response['location']
-        # Make sure it's a full URL
         if location
           if location.start_with?('/')
             location = "https://explain.dalibo.com#{location}"
