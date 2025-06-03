@@ -6,11 +6,13 @@ require_relative "execution_decider"
 require_relative "enum_helper"
 require_relative "dalibo_helper"
 require_relative "code_block_helper"
+require_relative "result_helper"
 
 class MarkdownProcessor
   include EnumHelper
   include DaliboHelper
   include CodeBlockHelper
+  include ResultHelper
 
   def initialize(temp_dir, input_file_path = nil)
     @temp_dir = temp_dir
@@ -40,53 +42,12 @@ class MarkdownProcessor
     @frontmatter_parser.resolve_language(lang)
   end
 
-  def ruby_style_result?(lang)
-    lang_config = SUPPORTED_LANGUAGES[lang]
-    lang_config && lang_config[:result_block_type] == "ruby"
-  end
-
-  def mermaid_style_result?(lang)
-    lang_config = SUPPORTED_LANGUAGES[lang]
-    lang_config && lang_config[:result_handling] == :mermaid_svg
-  end
-
-  def result_block_header(lang)
-    ruby_style_result?(lang) ? "```ruby RESULT\n" : "```RESULT\n"
-  end
-
-  def result_block_regex(lang)
-    if mermaid_style_result?(lang)
-      # For mermaid, look for existing image tags with .svg extension
-      /^!\[.*\]\(.*\.svg\)$/i
-    elsif ruby_style_result?(lang)
-      /^```ruby\s+RESULT$/i
-    else
-      /^```RESULT$/i
-    end
-  end
-
   def is_block_end?(line)
     @code_block_parser.is_block_end?(line)
   end
 
   def has_content?(content)
     !content.strip.empty?
-  end
-
-  def add_result_block(result_output, blank_line_before_new_result)
-    if mermaid_style_result?(@current_block_lang)
-      # For mermaid, add the image tag directly without a result block
-      @output_lines << "\n" if blank_line_before_new_result.nil?
-      @output_lines << result_output
-      @output_lines << "\n" unless result_output.empty? || result_output.end_with?("\n")
-      @output_lines << "\n"
-    else
-      @output_lines << "\n" if blank_line_before_new_result.nil?
-      @output_lines << result_block_header(@current_block_lang)
-      @output_lines << result_output
-      @output_lines << "\n" unless result_output.empty? || result_output.end_with?("\n")
-      @output_lines << "```\n\n"
-    end
   end
 
   def line_matches_pattern?(line, pattern)
@@ -129,20 +90,6 @@ class MarkdownProcessor
     end
   end
 
-  def handle_inside_result_block(current_line, file_enum)
-    @output_lines << current_line
-    if is_block_end?(current_line)
-      @state = :outside_code_block
-    end
-  end
-
-  def handle_existing_ruby_result_block(current_line, file_enum)
-    warn "Found existing '```ruby RESULT' block, passing through."
-    @output_lines << current_line
-    @state = :inside_result_block
-  end
-
-
   def decide_execution(file_enum)
     decider = ExecutionDecider.new(@current_block_run, @current_block_rerun, @current_block_lang, @current_block_explain, @current_block_result)
     decision = decider.decide(file_enum, method(:result_block_regex))
@@ -156,82 +103,6 @@ class MarkdownProcessor
     end
 
     decision
-  end
-
-  def execute_and_add_result(blank_line_before_new_result)
-    @output_lines << blank_line_before_new_result if blank_line_before_new_result
-
-    if has_content?(@current_code_content)
-      result_output = CodeExecutor.execute(@current_code_content, @current_block_lang, @temp_dir, @input_file_path, @current_block_explain)
-
-      # Check if result contains a Dalibo link for psql explain queries
-      dalibo_link, clean_result = extract_dalibo_link(result_output)
-
-      # Add the result block only if result=true (default)
-      if @current_block_result
-        add_result_block(clean_result || result_output, blank_line_before_new_result)
-      end
-
-      # Always add Dalibo link if it exists, even when result=false
-      if dalibo_link
-        # Add appropriate spacing based on whether result block was shown
-        if @current_block_result
-          @output_lines << "#{dalibo_link}\n\n"
-        else
-          @output_lines << "\n#{dalibo_link}\n\n"
-        end
-      end
-    else
-      warn "Skipping empty code block for language '#{@current_block_lang}'."
-    end
-  end
-
-  def skip_and_pass_through_result(lines_to_pass_through, file_enum, decision = nil)
-    # Handle run=false case where there are no lines to pass through
-    if lines_to_pass_through.empty?
-      warn "Skipping execution due to run=false option."
-      return
-    end
-
-    # Check if this is Dalibo content
-    if decision && decision[:dalibo_content]
-      warn "Found existing Dalibo link for current #{@current_block_lang} block, skipping execution."
-      @output_lines.concat(lines_to_pass_through)
-      # No additional consumption needed for Dalibo links
-      return
-    end
-
-    if mermaid_style_result?(@current_block_lang)
-      warn "Found existing mermaid SVG image for current #{@current_block_lang} block, skipping execution."
-      @output_lines.concat(lines_to_pass_through)
-      # For mermaid, no additional consumption needed since it's just an image line
-    else
-      lang_specific_result_type = ruby_style_result?(@current_block_lang) ? "```ruby RESULT" : "```RESULT"
-      warn "Found existing '#{lang_specific_result_type}' block for current #{@current_block_lang} block, skipping execution."
-      @output_lines.concat(lines_to_pass_through)
-      consume_result_block_content(file_enum)
-    end
-  end
-
-  def consume_result_block_content(file_enum)
-    consume_block_lines(file_enum) do |line|
-      @output_lines << line
-    end
-  end
-
-  def consume_existing_result_block(file_enum, consumed_lines)
-    if mermaid_style_result?(@current_block_lang)
-      # For mermaid, there's no result block to consume, just the image line
-      # The image line should already be in consumed_lines from ExecutionDecider
-      return
-    end
-
-    consume_block_lines(file_enum) do |line|
-      consumed_lines << line
-    end
-
-    # After consuming the result block, check if there's a Dalibo link to consume as well
-    consume_dalibo_link_if_present(file_enum, consumed_lines)
   end
 
   def consume_block_lines(file_enum)
