@@ -51,10 +51,19 @@ class CodeBlockParser
   def parse_boolean_option(options_string, option_name, default_value)
     return default_value unless options_string
 
-    # Match option=true or option=false
-    match = options_string.match(/#{option_name}\s*=\s*(true|false)/i)
-    return default_value unless match
+    # First, check for explicit option=true/false assignments (highest priority)
+    explicit_match = options_string.match(/#{option_name}\s*=\s*(true|false)/i)
+    if explicit_match
+      return explicit_match[1].downcase == "true"
+    end
 
-    match[1].downcase == "true"
+    # If no explicit assignment, check for standalone option (e.g., "rerun")
+    standalone_match = options_string.match(/\b#{option_name}\b(?!\s*=)/i)
+    if standalone_match
+      return true
+    end
+
+    # If neither found, return default value
+    default_value
   end
 end

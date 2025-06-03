@@ -305,4 +305,58 @@ class TestMarkdownRun < Minitest::Test
     assert file_content.match?(/!\[Mermaid Diagram\]\(.+\.svg\)/), "Mermaid should generate SVG image tag"
     refute file_content.include?("```RESULT"), "Mermaid should not create a RESULT block"
   end
+
+  def test_standalone_option_syntax
+    # Test 1: standalone rerun should work like rerun=true
+    md_content_standalone_rerun = <<~MARKDOWN
+      ```ruby rerun
+      puts "Standalone rerun test: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      Standalone rerun test: 999999999
+      ```
+    MARKDOWN
+    test_file_1 = File.join(@temp_dir, "test1.md")
+    File.write(test_file_1, md_content_standalone_rerun)
+    MarkdownRun.run_code_blocks(test_file_1)
+
+    file_content = File.read(test_file_1)
+    assert file_content.include?("```ruby RESULT"), "Standalone rerun should create result block"
+    refute file_content.include?("Standalone rerun test: 999999999"), "Standalone rerun should replace existing result"
+    assert file_content.match?(/Standalone rerun test: \d+/), "Standalone rerun should generate new result"
+
+    # Test 2: standalone run should work like run=true (default behavior)
+    md_content_standalone_run = <<~MARKDOWN
+      ```ruby run
+      puts "Standalone run test"
+      ```
+    MARKDOWN
+    test_file_2 = File.join(@temp_dir, "test2.md")
+    File.write(test_file_2, md_content_standalone_run)
+    MarkdownRun.run_code_blocks(test_file_2)
+
+    file_content = File.read(test_file_2)
+    assert file_content.include?("```ruby RESULT"), "Standalone run should create result block"
+    assert file_content.include?("Standalone run test"), "Standalone run should execute and show output"
+
+    # Test 3: explicit option should override standalone option
+    md_content_mixed_options = <<~MARKDOWN
+      ```ruby rerun run=false
+      puts "Execution test: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      Existing result to preserve
+      ```
+    MARKDOWN
+    test_file_3 = File.join(@temp_dir, "test3.md")
+    File.write(test_file_3, md_content_mixed_options)
+    MarkdownRun.run_code_blocks(test_file_3)
+
+    file_content = File.read(test_file_3)
+    assert file_content.include?("Existing result to preserve"), "run=false should override standalone rerun"
+    # Since run=false, the code should not execute and the result should remain unchanged
+    refute file_content.match?(/Execution test: \d+/), "run=false should prevent execution and result generation"
+  end
 end
