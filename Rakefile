@@ -19,4 +19,14 @@ task :flog_detailed do
   system("flog -d lib/ exe/ test/")
 end
 
+desc "Release"
+task :release do
+  `gem bump`
+  `bundle`
+  `git commit --amend`
+  `git push`
+  `git push --tags`
+  `gem release`
+end
+
 task default: :test
