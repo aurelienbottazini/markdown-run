@@ -6,7 +6,7 @@ class PostgreSQLFlameGraphSVG
     @explain_data = JSON.parse(explain_json)
     @width = width
     @height = height
-    @font_size = 12
+    @font_size = 20
     @min_width = 1
     @colors = [
       '#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6',
@@ -88,7 +88,7 @@ class PostgreSQLFlameGraphSVG
     max_depth = calculate_max_depth(flamegraph_data)
     total_time = flamegraph_data[:time]
 
-    svg_height = (max_depth + 1) * (@font_size + 4) + 40
+    svg_height = (max_depth + 1) * (@font_size + 4) + 80
 
     svg = <<~SVG
       <?xml version="1.0" encoding="UTF-8"?>
