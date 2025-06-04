@@ -9,7 +9,7 @@ module DaliboHelper
       lines = result_output.split("\n", 2)
       dalibo_url = lines[0].sub(DALIBO_LINK_PREFIX, "")
       clean_result = lines[1] || ""
-      dalibo_link = "**Dalibo Visualization:** [View Query Plan](#{dalibo_url})"
+      dalibo_link = "[Dalibo](#{dalibo_url})"
       [dalibo_link, clean_result]
     else
       [nil, result_output]
@@ -25,7 +25,7 @@ module DaliboHelper
 
         if is_blank_line?(next_line)
           consumed_lines << file_enum.next
-        elsif next_line&.start_with?("**Dalibo Visualization:**")
+        elsif next_line&.start_with?("[Dalibo]")
           consumed_lines << file_enum.next
         else
           # Hit something that's not a blank line or Dalibo link, stop consuming

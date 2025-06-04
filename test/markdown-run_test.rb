@@ -655,7 +655,7 @@ class TestMarkdownRun < Minitest::Test
     decider = ExecutionDecider.new(true, false, "psql", true, false, false)
 
     # Test Dalibo link detection
-    assert decider.send(:is_dalibo_link?, "**Dalibo Visualization:** [View](https://explain.dalibo.com/plan/123)")
+    assert decider.send(:is_dalibo_link?, "[Dalibo](https://explain.dalibo.com/plan/123)")
     refute decider.send(:is_dalibo_link?, "Some regular text")
     refute decider.send(:is_dalibo_link?, "```RESULT")
     refute decider.send(:is_dalibo_link?, "")
@@ -688,7 +688,7 @@ class TestMarkdownRun < Minitest::Test
     require_relative "../lib/enum_helper"
 
     lines = [
-      "**Dalibo Visualization:** [View](https://explain.dalibo.com/plan/old-123)",
+      "[Dalibo](https://explain.dalibo.com/plan/old-123)",
       "Some other content"
     ]
     file_enum = lines.to_enum
@@ -707,7 +707,7 @@ class TestMarkdownRun < Minitest::Test
 
     lines = [
       "",  # blank line
-      "**Dalibo Visualization:** [View](https://explain.dalibo.com/plan/old-456)",
+      "[Dalibo](https://explain.dalibo.com/plan/old-456)",
       "Some other content"
     ]
     file_enum = lines.to_enum
@@ -725,10 +725,10 @@ class TestMarkdownRun < Minitest::Test
     require_relative "../lib/execution_decider"
 
     lines = [
-      "**Dalibo Visualization:** [View](https://explain.dalibo.com/plan/link1)",
+      "[Dalibo](https://explain.dalibo.com/plan/link1)",
       "",
-      "**Dalibo Visualization:** [View](https://explain.dalibo.com/plan/link2)",
-      "**Dalibo Visualization:** [View](https://explain.dalibo.com/plan/link3)",
+      "[Dalibo](https://explain.dalibo.com/plan/link2)",
+      "[Dalibo](https://explain.dalibo.com/plan/link3)",
       "",
       "Some other content"
     ]

@@ -210,7 +210,7 @@ class ExecutionDecider
   end
 
   def is_dalibo_link?(line)
-    line&.start_with?("**Dalibo Visualization:**")
+    line&.start_with?("[Dalibo]")
   end
 
   def line_matches_pattern?(line, pattern)
