@@ -37,7 +37,7 @@ class CodeExecutor
     if temp_file_suffix
       execute_with_temp_file(code_content, cmd_lambda, temp_file_suffix, temp_dir, lang_key, input_file_path, explain, flamegraph)
     else
-      execute_direct_command(code_content, cmd_lambda, explain, flamegraph)
+      execute_direct_command(code_content, cmd_lambda, input_file_path, explain, flamegraph)
     end
   end
 
@@ -63,10 +63,10 @@ class CodeExecutor
     result
   end
 
-  def execute_direct_command(code_content, cmd_lambda, explain = false, flamegraph = false)
-    command_to_run, exec_options = cmd_lambda.call(code_content, nil, nil, explain, flamegraph)
+  def execute_direct_command(code_content, cmd_lambda, input_file_path = nil, explain = false, flamegraph = false)
+    command_to_run, exec_options = cmd_lambda.call(code_content, nil, input_file_path, explain, flamegraph)
     captured_stdout, captured_stderr, captured_status_obj = Open3.capture3(command_to_run, **exec_options)
-    { stdout: captured_stdout, stderr: captured_stderr, status: captured_status_obj }
+    { stdout: captured_stdout, stderr: captured_stderr, status: captured_status_obj, input_file_path: input_file_path }
   end
 
   def process_execution_result(result, lang_config, lang_key, explain = false, flamegraph = false)
