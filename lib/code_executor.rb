@@ -76,10 +76,15 @@ class CodeExecutor
       result_output = add_error_to_output(exit_status, lang_config, lang_key, result_output, stderr_output)
     elsif lang_config && lang_config[:result_handling] == :mermaid_svg
       result_output = handle_mermaid_svg_result(result, lang_key)
-    elsif flamegraph && lang_key == "psql"
-      result_output = handle_psql_flamegraph_result(result_output, result[:input_file_path])
-    elsif explain && lang_key == "psql"
-      result_output = handle_psql_explain_result(result_output)
+    else
+      # Handle psql explain and flamegraph processing (both can be enabled)
+      if explain && lang_key == "psql"
+        result_output = handle_psql_explain_result(result_output)
+      end
+
+      if flamegraph && lang_key == "psql"
+        result_output = handle_psql_flamegraph_result(result_output, result[:input_file_path])
+      end
     end
 
     result_output
@@ -174,8 +179,17 @@ class CodeExecutor
     require_relative 'pg_flamegraph_svg'
 
     begin
+      # Extract clean JSON from result_output (might contain Dalibo link prefix)
+      json_text = if result_output.start_with?("DALIBO_LINK:")
+        # Extract the JSON part after the Dalibo link line
+        lines = result_output.split("\n", 2)
+        lines[1] || ""
+      else
+        result_output.strip
+      end
+
       # Parse the EXPLAIN JSON output
-      json_data = JSON.parse(result_output.strip)
+      json_data = JSON.parse(json_text)
 
       # Generate SVG flamegraph
       flamegraph_generator = PostgreSQLFlameGraphSVG.new(JSON.generate(json_data))
@@ -214,7 +228,15 @@ class CodeExecutor
       warn "Generated PostgreSQL flamegraph: #{relative_path}"
 
       # Return a special format that the markdown processor can parse
-      "FLAMEGRAPH_LINK:#{relative_path}\n#{result_output.strip}"
+      # Preserve any existing Dalibo link prefix
+      if result_output.start_with?("DALIBO_LINK:")
+        lines = result_output.split("\n", 2)
+        dalibo_part = lines[0]
+        json_part = lines[1] || ""
+        "#{dalibo_part}\nFLAMEGRAPH_LINK:#{relative_path}\n#{json_part}"
+      else
+        "FLAMEGRAPH_LINK:#{relative_path}\n#{json_text}"
+      end
 
     rescue JSON::ParserError => e
       warn "Error parsing EXPLAIN JSON: #{e.message}"
