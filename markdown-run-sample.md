@@ -76,3 +76,12 @@ Page cache spills:                   0
 Schema Heap Usage:                   0 bytes
 Statement Heap/Lookaside Usage:      0 bytes
 ```
+
+```psql rerun flamegraph
+select 42 as answer;
+```
+
+```RESULT
+![PostgreSQL Query Flamegraph](pg-flamegraph-20250604-222931.svg)
+```
+

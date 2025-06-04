@@ -3,11 +3,12 @@ require_relative "enum_helper"
 class ExecutionDecider
   include EnumHelper
 
-  def initialize(current_block_run, current_block_rerun, current_block_lang, current_block_explain = false, current_block_result = true)
+  def initialize(current_block_run, current_block_rerun, current_block_lang, current_block_explain = false, current_block_flamegraph = false, current_block_result = true)
     @current_block_run = current_block_run
     @current_block_rerun = current_block_rerun
     @current_block_lang = current_block_lang
     @current_block_explain = current_block_explain
+    @current_block_flamegraph = current_block_flamegraph
     @current_block_result = current_block_result
   end
 
@@ -21,7 +22,7 @@ class ExecutionDecider
       handle_immediate_result_block(file_enum)
     elsif is_blank_line?(peek1)
       handle_blank_line_scenario(file_enum, expected_header_regex)
-    elsif @current_block_explain && is_dalibo_link?(peek1)
+    elsif (@current_block_explain || @current_block_flamegraph) && is_dalibo_link?(peek1)
       handle_immediate_dalibo_link(file_enum)
     else
       execute_without_existing_result
@@ -48,11 +49,11 @@ class ExecutionDecider
 
   def handle_blank_line_scenario(file_enum, expected_header_regex)
     consumed_blank_line = file_enum.next
-    
+
     # Look ahead past multiple blank lines to find actual content
     peek2 = peek_next_line(file_enum)
     additional_blanks = []
-    
+
     # Consume consecutive blank lines
     while is_blank_line?(peek2)
       additional_blanks << file_enum.next
@@ -61,7 +62,7 @@ class ExecutionDecider
 
     if line_matches_pattern?(peek2, expected_header_regex)
       handle_result_after_blank_lines(file_enum, consumed_blank_line, additional_blanks)
-    elsif @current_block_explain && is_dalibo_link?(peek2)
+    elsif (@current_block_explain || @current_block_flamegraph) && is_dalibo_link?(peek2)
       handle_dalibo_after_blank_lines(file_enum, consumed_blank_line, additional_blanks)
     else
       execute_with_blank_lines(consumed_blank_line, additional_blanks)
@@ -194,7 +195,7 @@ class ExecutionDecider
     # Consume all consecutive Dalibo links and blank lines
     loop do
       next_line = peek_next_line(file_enum)
-      
+
       if is_blank_line?(next_line) || is_dalibo_link?(next_line)
         consumed_line = file_enum.next
         consumed_lines << consumed_line
@@ -217,9 +218,9 @@ class ExecutionDecider
   end
 
   def should_auto_replace_dalibo_link?
-    # Auto-replace Dalibo links when using explain with result=false
+    # Auto-replace Dalibo links when using explain or flamegraph with result=false
     # This makes sense because with result=false, there's only a Dalibo link,
     # so it should be updated on each run
-    @current_block_explain && !@current_block_result
+    (@current_block_explain || @current_block_flamegraph) && !@current_block_result
   end
 end

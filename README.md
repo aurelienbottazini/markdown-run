@@ -59,6 +59,7 @@ example vscode keybinding
 - `rerun=true` or `rerun=false` to control whether a code block should be re-executed if a result block already exists. `rerun=false` is the default if not specified
 - `result=true` or `result=false` to control whether the result block should be displayed after execution. `result=true` is the default if not specified. When `result=false`, the code still executes but the result block is hidden
 - `explain=true` or `explain=false` for psql code blocks to generate query execution plans with Dalibo visualization links. `explain=false` is the default if not specified
+- `flamegraph=true` or `flamegraph=false` for psql code blocks to generate PostgreSQL query execution plan flamegraphs as SVG images. `flamegraph=false` is the default if not specified
 
 Options can be combined. If `run=false` is specified, the code block will not execute regardless of the `rerun` setting. The `result` option only affects display of the result block, not code execution.
 
@@ -70,6 +71,7 @@ Options can also be specified using standalone syntax without explicit `=true`:
 - `rerun` is equivalent to `rerun=true`
 - `result` is equivalent to `result=true`
 - `explain` is equivalent to `explain=true`
+- `flamegraph` is equivalent to `flamegraph=true`
 
 Explicit assignments (e.g., `run=false`) take precedence over standalone options.
 
@@ -99,10 +101,56 @@ SELECT * FROM users WHERE id = 1;
 EXPLAIN (ANALYZE) SELECT * FROM large_table;
 ```
 
+```psql flamegraph
+SELECT u.name, COUNT(o.id) as order_count
+FROM users u
+LEFT JOIN orders o ON u.id = o.user_id
+WHERE u.created_at > '2024-01-01'
+GROUP BY u.id, u.name
+ORDER BY order_count DESC
+LIMIT 10;
+```
+
+```psql flamegraph=true result=false
+-- This will generate a flamegraph but hide the JSON result block
+SELECT * FROM complex_query_with_joins;
+```
+
 ```psql result=false explain
 SELECT * FROM large_table;
 -- This will execute the explain query and show the Dalibo link but hide the result block
 ```
+
+### PostgreSQL Flamegraphs
+
+PostgreSQL flamegraph blocks generate interactive SVG flamegraphs from query execution plans:
+
+```psql flamegraph
+SELECT users.*, orders.total
+FROM users
+JOIN orders ON users.id = orders.user_id
+WHERE users.created_at > '2024-01-01';
+```
+
+This generates:
+
+- An SVG flamegraph file in a directory named after the markdown file
+- Filename format: `my-document-flamegraph-20250118-143022-a1b2c3.svg`
+- Embedded image tag: `![PostgreSQL Query Flamegraph](my-document/my-document-flamegraph-20250118-143022-a1b2c3.svg)`
+
+**Flamegraph features:**
+
+- **Interactive**: Hover over rectangles to see detailed timing information
+- **Color-coded**: Different colors for operation types (red=seq scans, green=index scans, blue=joins, etc.)
+- **Hierarchical**: Shows query plan structure visually
+- **Performance insights**: Width represents execution time, making bottlenecks immediately visible
+
+**What flamegraphs help identify:**
+
+- Slow operations (widest rectangles)
+- Query plan structure (nested relationships)
+- Inefficient operations (color-coded by type)
+- Execution time distribution across plan nodes
 
 ### Mermaid diagrams
 
@@ -163,6 +211,7 @@ markdown-run:
 - `rerun`: Control whether to re-execute if result exists (default: `false`)
 - `result`: Control whether to show result blocks (default: `true`)
 - `explain`: For psql blocks, generate explain plans (default: `false`)
+- `flamegraph`: For psql blocks, generate flamegraph SVGs (default: `false`)
 
 **Examples:**
 
@@ -182,6 +231,14 @@ markdown-run:
     result: false
   psql:
     explain: true
+```
+
+Enable flamegraphs by default for all psql blocks:
+
+```yaml
+markdown-run:
+  psql:
+    flamegraph: true
 ```
 
 Language-specific settings override global defaults:

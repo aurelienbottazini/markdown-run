@@ -1,7 +1,7 @@
 require 'securerandom'
 
 JS_CONFIG = {
-  command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false) {
+  command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
     # Check if bun is available
     bun_exists = system("command -v bun > /dev/null 2>&1")
     if bun_exists
@@ -16,20 +16,20 @@ JS_CONFIG = {
 }.freeze
 
 SQLITE_CONFIG = {
-  command: ->(code_content, temp_file_path, input_file_path = nil, explain = false) { [ "sqlite3 #{temp_file_path}", { stdin_data: code_content } ] },
+  command: ->(code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) { [ "sqlite3 #{temp_file_path}", { stdin_data: code_content } ] },
   temp_file_suffix: ".db" # Temp file is the database
 }.freeze
 
 SUPPORTED_LANGUAGES = {
   "psql" => {
-    command: ->(code_content, _temp_file_path, input_file_path = nil, explain = false) {
+    command: ->(code_content, _temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
       psql_exists = system("command -v psql > /dev/null 2>&1")
       unless psql_exists
         abort "Error: psql command not found. Please install PostgreSQL or ensure psql is in your PATH."
       end
 
-      # Modify the SQL query if explain option is enabled
-      if explain
+      # Modify the SQL query if explain or flamegraph option is enabled
+      if explain || flamegraph
         # Wrap the query with EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
         # Remove any trailing semicolons and whitespace, then add our EXPLAIN wrapper
         clean_query = code_content.strip.gsub(/;\s*$/, '')
@@ -41,7 +41,7 @@ SUPPORTED_LANGUAGES = {
     }
   },
   "ruby" => {
-    command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false) {
+    command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
       xmpfilter_exists = system("command -v xmpfilter > /dev/null 2>&1")
       unless xmpfilter_exists
         abort "Error: xmpfilter command not found. Please install xmpfilter or ensure it is in your PATH."
@@ -57,7 +57,7 @@ SUPPORTED_LANGUAGES = {
   "sqlite" => SQLITE_CONFIG,
   "sqlite3" => SQLITE_CONFIG, # Alias for sqlite
   "bash" => {
-    command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false) {
+    command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
       bash_exists = system("command -v bash > /dev/null 2>&1")
       unless bash_exists
         abort "Error: bash command not found. Please ensure bash is in your PATH."
@@ -67,7 +67,7 @@ SUPPORTED_LANGUAGES = {
     temp_file_suffix: ".sh"
   },
   "zsh" => {
-    command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false) {
+    command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
       zsh_exists = system("command -v zsh > /dev/null 2>&1")
       unless zsh_exists
         abort "Error: zsh command not found. Please ensure zsh is in your PATH."
@@ -77,7 +77,7 @@ SUPPORTED_LANGUAGES = {
     temp_file_suffix: ".zsh"
   },
   "sh" => {
-    command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false) {
+    command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
       sh_exists = system("command -v sh > /dev/null 2>&1")
       unless sh_exists
         abort "Error: sh command not found. Please ensure sh is in your PATH."
@@ -87,7 +87,7 @@ SUPPORTED_LANGUAGES = {
     temp_file_suffix: ".sh"
   },
   "mermaid" => {
-    command: ->(code_content, temp_file_path, input_file_path = nil, explain = false) {
+    command: ->(code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
       mmdc_exists = system("command -v mmdc > /dev/null 2>&1")
       unless mmdc_exists
         abort "Error: mmdc command not found. Please install @mermaid-js/mermaid-cli: npm install -g @mermaid-js/mermaid-cli"

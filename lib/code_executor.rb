@@ -3,11 +3,11 @@ require "open3"
 require_relative "language_configs"
 
 class CodeExecutor
-  def self.execute(code_content, lang, temp_dir, input_file_path = nil, explain = false)
-    new.execute(code_content, lang, temp_dir, input_file_path, explain)
+  def self.execute(code_content, lang, temp_dir, input_file_path = nil, explain = false, flamegraph = false)
+    new.execute(code_content, lang, temp_dir, input_file_path, explain, flamegraph)
   end
 
-  def execute(code_content, lang, temp_dir, input_file_path = nil, explain = false)
+  def execute(code_content, lang, temp_dir, input_file_path = nil, explain = false, flamegraph = false)
     lang_key = lang.downcase
     lang_config = SUPPORTED_LANGUAGES[lang_key]
 
@@ -15,13 +15,11 @@ class CodeExecutor
 
     warn "Executing #{lang_key} code block..."
 
-    result = execute_with_config(code_content, lang_config, temp_dir, lang_key, input_file_path, explain)
-    process_execution_result(result, lang_config, lang_key, explain)
+    result = execute_with_config(code_content, lang_config, temp_dir, lang_key, input_file_path, explain, flamegraph)
+    process_execution_result(result, lang_config, lang_key, explain, flamegraph)
   end
 
   private
-
-
 
   def stderr_has_content?(stderr_output)
     stderr_output && !stderr_output.strip.empty?
@@ -32,23 +30,23 @@ class CodeExecutor
     "ERROR: Unsupported language: #{lang}"
   end
 
-  def execute_with_config(code_content, lang_config, temp_dir, lang_key, input_file_path = nil, explain = false)
+  def execute_with_config(code_content, lang_config, temp_dir, lang_key, input_file_path = nil, explain = false, flamegraph = false)
     cmd_lambda = lang_config[:command]
     temp_file_suffix = lang_config[:temp_file_suffix]
 
     if temp_file_suffix
-      execute_with_temp_file(code_content, cmd_lambda, temp_file_suffix, temp_dir, lang_key, input_file_path, explain)
+      execute_with_temp_file(code_content, cmd_lambda, temp_file_suffix, temp_dir, lang_key, input_file_path, explain, flamegraph)
     else
-      execute_direct_command(code_content, cmd_lambda, explain)
+      execute_direct_command(code_content, cmd_lambda, explain, flamegraph)
     end
   end
 
-  def execute_with_temp_file(code_content, cmd_lambda, temp_file_suffix, temp_dir, lang_key, input_file_path = nil, explain = false)
+  def execute_with_temp_file(code_content, cmd_lambda, temp_file_suffix, temp_dir, lang_key, input_file_path = nil, explain = false, flamegraph = false)
     result = nil
     Tempfile.create([lang_key, temp_file_suffix], temp_dir) do |temp_file|
       temp_file.write(code_content)
       temp_file.close
-      command_to_run, exec_options = cmd_lambda.call(code_content, temp_file.path, input_file_path, explain)
+      command_to_run, exec_options = cmd_lambda.call(code_content, temp_file.path, input_file_path, explain, flamegraph)
 
       # Extract output_path if present (for mermaid)
       output_path = exec_options.delete(:output_path) if exec_options.is_a?(Hash)
@@ -58,25 +56,28 @@ class CodeExecutor
         stdout: captured_stdout,
         stderr: captured_stderr,
         status: captured_status_obj,
-        output_path: output_path # For mermaid SVG output
+        output_path: output_path, # For mermaid SVG output
+        input_file_path: input_file_path # Pass through for flamegraph generation
       }
     end
     result
   end
 
-  def execute_direct_command(code_content, cmd_lambda, explain = false)
-    command_to_run, exec_options = cmd_lambda.call(code_content, nil, nil, explain)
+  def execute_direct_command(code_content, cmd_lambda, explain = false, flamegraph = false)
+    command_to_run, exec_options = cmd_lambda.call(code_content, nil, nil, explain, flamegraph)
     captured_stdout, captured_stderr, captured_status_obj = Open3.capture3(command_to_run, **exec_options)
     { stdout: captured_stdout, stderr: captured_stderr, status: captured_status_obj }
   end
 
-  def process_execution_result(result, lang_config, lang_key, explain = false)
+  def process_execution_result(result, lang_config, lang_key, explain = false, flamegraph = false)
     exit_status, result_output, stderr_output = format_captured_output(result, lang_config)
 
     if exit_status != 0
       result_output = add_error_to_output(exit_status, lang_config, lang_key, result_output, stderr_output)
     elsif lang_config && lang_config[:result_handling] == :mermaid_svg
       result_output = handle_mermaid_svg_result(result, lang_key)
+    elsif flamegraph && lang_key == "psql"
+      result_output = handle_psql_flamegraph_result(result_output, result[:input_file_path])
     elsif explain && lang_key == "psql"
       result_output = handle_psql_explain_result(result_output)
     end
@@ -165,6 +166,61 @@ class CodeExecutor
       end
     rescue JSON::ParserError
       # If it's not valid JSON, just return the original output
+      result_output
+    end
+  end
+
+  def handle_psql_flamegraph_result(result_output, input_file_path = nil)
+    require_relative 'pg_flamegraph_svg'
+
+    begin
+      # Parse the EXPLAIN JSON output
+      json_data = JSON.parse(result_output.strip)
+
+      # Generate SVG flamegraph
+      flamegraph_generator = PostgreSQLFlameGraphSVG.new(JSON.generate(json_data))
+      svg_content = flamegraph_generator.generate_svg
+
+      # Save SVG file following same pattern as mermaid
+      if input_file_path
+        # Extract markdown file basename without extension
+        md_basename = File.basename(input_file_path, ".*")
+
+        # Create directory named after the markdown file
+        output_dir = File.join(File.dirname(input_file_path), md_basename)
+        Dir.mkdir(output_dir) unless Dir.exist?(output_dir)
+
+        # Generate unique filename with markdown basename prefix
+        timestamp = Time.now.strftime("%Y%m%d-%H%M%S")
+        random_suffix = SecureRandom.hex(6)
+        svg_filename = "#{md_basename}-flamegraph-#{timestamp}-#{random_suffix}.svg"
+        output_path = File.join(output_dir, svg_filename)
+      else
+        # Fallback to simple naming
+        timestamp = Time.now.strftime("%Y%m%d-%H%M%S")
+        output_path = "pg-flamegraph-#{timestamp}.svg"
+      end
+
+      # Write SVG file
+      File.write(output_path, svg_content)
+
+      # Generate relative path for markdown
+      if input_file_path
+        relative_path = "#{File.basename(output_dir)}/#{File.basename(output_path)}"
+      else
+        relative_path = File.basename(output_path)
+      end
+
+      warn "Generated PostgreSQL flamegraph: #{relative_path}"
+
+      # Return markdown image tag
+      "![PostgreSQL Query Flamegraph](#{relative_path})"
+
+    rescue JSON::ParserError => e
+      warn "Error parsing EXPLAIN JSON: #{e.message}"
+      result_output
+    rescue => e
+      warn "Error generating flamegraph: #{e.message}"
       result_output
     end
   end

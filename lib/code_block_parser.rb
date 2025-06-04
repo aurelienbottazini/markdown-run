@@ -49,6 +49,11 @@ class CodeBlockParser
     parse_boolean_option(options_string, "explain", default_value)
   end
 
+  def parse_flamegraph_option(options_string, language = nil)
+    default_value = @frontmatter_parser.get_default_value("flamegraph", language, false)
+    parse_boolean_option(options_string, "flamegraph", default_value)
+  end
+
   def parse_result_option(options_string, language = nil)
     default_value = @frontmatter_parser.get_default_value("result", language, true)
     parse_boolean_option(options_string, "result", default_value)

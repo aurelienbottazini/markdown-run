@@ -10,6 +10,7 @@ module CodeBlockHelper
     @current_block_rerun = false
     @current_block_run = true
     @current_block_explain = false
+    @current_block_flamegraph = false
     @current_block_result = true
   end
 
@@ -20,6 +21,7 @@ module CodeBlockHelper
     @current_block_rerun = @code_block_parser.parse_rerun_option(options_string, @current_block_lang)
     @current_block_run = @code_block_parser.parse_run_option(options_string, @current_block_lang)
     @current_block_explain = @code_block_parser.parse_explain_option(options_string, @current_block_lang)
+    @current_block_flamegraph = @code_block_parser.parse_flamegraph_option(options_string, @current_block_lang)
     @current_block_result = @code_block_parser.parse_result_option(options_string, @current_block_lang)
     @state = :inside_code_block
     @current_code_content = ""
@@ -46,7 +48,7 @@ module CodeBlockHelper
   end
 
   def decide_execution(file_enum)
-    decider = ExecutionDecider.new(@current_block_run, @current_block_rerun, @current_block_lang, @current_block_explain, @current_block_result)
+    decider = ExecutionDecider.new(@current_block_run, @current_block_rerun, @current_block_lang, @current_block_explain, @current_block_flamegraph, @current_block_result)
     decision = decider.decide(file_enum, method(:result_block_regex))
 
     # Handle the consume_existing flag for rerun scenarios

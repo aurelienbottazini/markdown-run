@@ -652,7 +652,7 @@ class TestMarkdownRun < Minitest::Test
     # Test the ExecutionDecider's ability to detect Dalibo links
     require_relative "../lib/execution_decider"
 
-    decider = ExecutionDecider.new(true, false, "psql", true, false)
+    decider = ExecutionDecider.new(true, false, "psql", true, false, false)
 
     # Test Dalibo link detection
     assert decider.send(:is_dalibo_link?, "**Dalibo Visualization:** [View](https://explain.dalibo.com/plan/123)")
@@ -666,16 +666,20 @@ class TestMarkdownRun < Minitest::Test
     require_relative "../lib/execution_decider"
 
     # explain=true, result=false should auto-replace
-    decider1 = ExecutionDecider.new(true, false, "psql", true, false)
+    decider1 = ExecutionDecider.new(true, false, "psql", true, false, false)
     assert decider1.send(:should_auto_replace_dalibo_link?), "Should auto-replace with explain=true, result=false"
 
     # explain=true, result=true should NOT auto-replace
-    decider2 = ExecutionDecider.new(true, false, "psql", true, true)
+    decider2 = ExecutionDecider.new(true, false, "psql", true, false, true)
     refute decider2.send(:should_auto_replace_dalibo_link?), "Should not auto-replace with explain=true, result=true"
 
     # explain=false should NOT auto-replace
-    decider3 = ExecutionDecider.new(true, false, "psql", false, false)
+    decider3 = ExecutionDecider.new(true, false, "psql", false, false, false)
     refute decider3.send(:should_auto_replace_dalibo_link?), "Should not auto-replace with explain=false"
+
+    # flamegraph=true, result=false should auto-replace
+    decider4 = ExecutionDecider.new(true, false, "psql", false, true, false)
+    assert decider4.send(:should_auto_replace_dalibo_link?), "Should auto-replace with flamegraph=true, result=false"
   end
 
   def test_execution_decider_dalibo_immediate_handling
@@ -690,7 +694,7 @@ class TestMarkdownRun < Minitest::Test
     file_enum = lines.to_enum
 
     # With auto-replace (explain result=false)
-    decider = ExecutionDecider.new(true, false, "psql", true, false)
+    decider = ExecutionDecider.new(true, false, "psql", true, false, false)
     result = decider.send(:handle_immediate_dalibo_link, file_enum)
 
     assert result[:execute], "Should execute with auto-replace"
@@ -709,7 +713,7 @@ class TestMarkdownRun < Minitest::Test
     file_enum = lines.to_enum
 
     # With auto-replace (explain result=false)
-    decider = ExecutionDecider.new(true, false, "psql", true, false)
+    decider = ExecutionDecider.new(true, false, "psql", true, false, false)
     result = decider.send(:handle_dalibo_after_blank_lines, file_enum, "", [])
 
     assert result[:execute], "Should execute with auto-replace after blank lines"
@@ -731,7 +735,7 @@ class TestMarkdownRun < Minitest::Test
     file_enum = lines.to_enum
     consumed_lines = []
 
-    decider = ExecutionDecider.new(true, false, "psql", true, false)
+    decider = ExecutionDecider.new(true, false, "psql", true, false, false)
     decider.send(:consume_dalibo_links, file_enum, consumed_lines)
 
     assert_equal 5, consumed_lines.length, "Should consume all Dalibo links and blank lines"

@@ -62,7 +62,7 @@ module ResultHelper
 
     @output_lines << blank_line_before_new_result if blank_line_before_new_result
 
-    result_output = CodeExecutor.execute(@current_code_content, @current_block_lang, @temp_dir, @input_file_path, @current_block_explain)
+    result_output = CodeExecutor.execute(@current_code_content, @current_block_lang, @temp_dir, @input_file_path, @current_block_explain, @current_block_flamegraph)
 
     # Check if result contains a Dalibo link for psql explain queries
     dalibo_link, clean_result = extract_dalibo_link(result_output)
