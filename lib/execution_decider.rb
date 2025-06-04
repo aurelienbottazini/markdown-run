@@ -24,6 +24,8 @@ class ExecutionDecider
       handle_blank_line_scenario(file_enum, expected_header_regex)
     elsif (@current_block_explain || @current_block_flamegraph) && is_dalibo_link?(peek1)
       handle_immediate_dalibo_link(file_enum)
+    elsif @current_block_flamegraph && is_flamegraph_link?(peek1)
+      handle_immediate_flamegraph_link(file_enum)
     else
       execute_without_existing_result
     end
@@ -64,6 +66,8 @@ class ExecutionDecider
       handle_result_after_blank_lines(file_enum, consumed_blank_line, additional_blanks)
     elsif (@current_block_explain || @current_block_flamegraph) && is_dalibo_link?(peek2)
       handle_dalibo_after_blank_lines(file_enum, consumed_blank_line, additional_blanks)
+    elsif @current_block_flamegraph && is_flamegraph_link?(peek2)
+      handle_flamegraph_after_blank_lines(file_enum, consumed_blank_line, additional_blanks)
     else
       execute_with_blank_lines(consumed_blank_line, additional_blanks)
     end
@@ -222,5 +226,74 @@ class ExecutionDecider
     # This makes sense because with result=false, there's only a Dalibo link,
     # so it should be updated on each run
     (@current_block_explain || @current_block_flamegraph) && !@current_block_result
+  end
+
+  def is_flamegraph_link?(line)
+    line&.start_with?("![PostgreSQL Query Flamegraph]")
+  end
+
+  def handle_flamegraph_after_blank_lines(file_enum, consumed_blank_line, additional_blanks)
+    # For flamegraph result=false, always replace existing flamegraph links
+    # For flamegraph result=true, follow normal rerun logic
+    if should_auto_replace_flamegraph_link? || @current_block_rerun
+      execute_with_consumed_flamegraph_and_blanks(file_enum, consumed_blank_line, additional_blanks)
+    else
+      skip_with_blanks_and_flamegraph(file_enum, consumed_blank_line, additional_blanks)
+    end
+  end
+
+  def handle_immediate_flamegraph_link(file_enum)
+    # For flamegraph result=false, always replace existing flamegraph links
+    # For flamegraph result=true, follow normal rerun logic
+    if should_auto_replace_flamegraph_link? || @current_block_rerun
+      execute_with_consumed_flamegraph(file_enum)
+    else
+      skip_with_existing_flamegraph(file_enum)
+    end
+  end
+
+  def execute_with_consumed_flamegraph(file_enum)
+    consumed_lines = []
+    consume_flamegraph_links(file_enum, consumed_lines)
+    { execute: true, consumed_lines: consumed_lines, consume_existing_flamegraph: true }
+  end
+
+  def skip_with_existing_flamegraph(file_enum)
+    consumed_lines = []
+    consume_flamegraph_links(file_enum, consumed_lines)
+    { execute: false, lines_to_pass_through: consumed_lines, flamegraph_content: true }
+  end
+
+  def execute_with_consumed_flamegraph_and_blanks(file_enum, consumed_blank_line, additional_blanks)
+    consumed_lines = [consumed_blank_line] + additional_blanks
+    consume_flamegraph_links(file_enum, consumed_lines)
+    { execute: true, consumed_lines: consumed_lines, blank_line: consumed_blank_line, consume_existing_flamegraph: true }
+  end
+
+  def skip_with_blanks_and_flamegraph(file_enum, consumed_blank_line, additional_blanks)
+    consumed_lines = [consumed_blank_line] + additional_blanks
+    consume_flamegraph_links(file_enum, consumed_lines)
+    { execute: false, lines_to_pass_through: consumed_lines, flamegraph_content: true }
+  end
+
+  def consume_flamegraph_links(file_enum, consumed_lines)
+    # Consume all consecutive flamegraph links and blank lines
+    loop do
+      next_line = peek_next_line(file_enum)
+
+      if is_blank_line?(next_line) || is_flamegraph_link?(next_line)
+        consumed_line = file_enum.next
+        consumed_lines << consumed_line
+      else
+        break
+      end
+    end
+  end
+
+  def should_auto_replace_flamegraph_link?
+    # Auto-replace flamegraph links when using flamegraph with result=false
+    # This makes sense because with result=false, there's only a flamegraph link,
+    # so it should be updated on each run
+    @current_block_flamegraph && !@current_block_result
   end
 end

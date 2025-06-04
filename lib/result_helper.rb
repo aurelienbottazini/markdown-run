@@ -1,4 +1,8 @@
+require_relative "flamegraph_helper"
+
 module ResultHelper
+  include FlamegraphHelper
+
   private
 
   def ruby_style_result?(lang)
@@ -65,11 +69,14 @@ module ResultHelper
     result_output = CodeExecutor.execute(@current_code_content, @current_block_lang, @temp_dir, @input_file_path, @current_block_explain, @current_block_flamegraph)
 
     # Check if result contains a Dalibo link for psql explain queries
-    dalibo_link, clean_result = extract_dalibo_link(result_output)
+    dalibo_link, result_after_dalibo = extract_dalibo_link(result_output)
+
+    # Check if result contains a flamegraph link for psql flamegraph queries
+    flamegraph_link, clean_result = extract_flamegraph_link(result_after_dalibo)
 
     # Add the result block only if result=true (default)
     if @current_block_result
-      add_result_block(clean_result || result_output, blank_line_before_new_result)
+      add_result_block(clean_result || result_after_dalibo, blank_line_before_new_result)
     end
 
     # Always add Dalibo link if it exists, even when result=false
@@ -79,6 +86,16 @@ module ResultHelper
         @output_lines << "#{dalibo_link}\n\n"
       else
         @output_lines << "\n#{dalibo_link}\n\n"
+      end
+    end
+
+    # Always add flamegraph link if it exists, even when result=false
+    if flamegraph_link
+      # Add appropriate spacing based on whether result block was shown
+      if @current_block_result || dalibo_link
+        @output_lines << "#{flamegraph_link}\n\n"
+      else
+        @output_lines << "\n#{flamegraph_link}\n\n"
       end
     end
   end
@@ -95,6 +112,14 @@ module ResultHelper
       warn "Found existing Dalibo link for current #{@current_block_lang} block, skipping execution."
       @output_lines.concat(lines_to_pass_through)
       # No additional consumption needed for Dalibo links
+      return
+    end
+
+    # Check if this is flamegraph content
+    if decision && decision[:flamegraph_content]
+      warn "Found existing flamegraph for current #{@current_block_lang} block, skipping execution."
+      @output_lines.concat(lines_to_pass_through)
+      # No additional consumption needed for flamegraph links
       return
     end
 
@@ -124,6 +149,7 @@ module ResultHelper
     end
 
     consume_dalibo_link_if_present(file_enum, consumed_lines)
+    consume_flamegraph_link_if_present(file_enum, consumed_lines)
   end
 
 

@@ -213,8 +213,8 @@ class CodeExecutor
 
       warn "Generated PostgreSQL flamegraph: #{relative_path}"
 
-      # Return markdown image tag
-      "![PostgreSQL Query Flamegraph](#{relative_path})"
+      # Return a special format that the markdown processor can parse
+      "FLAMEGRAPH_LINK:#{relative_path}\n#{result_output.strip}"
 
     rescue JSON::ParserError => e
       warn "Error parsing EXPLAIN JSON: #{e.message}"
