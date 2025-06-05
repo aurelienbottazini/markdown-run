@@ -6,8 +6,9 @@ class CodeBlockParser
   RUBY_RESULT_BLOCK_PATTERN = /^```ruby\s+RESULT$/i
   BLOCK_END_PATTERN = "```"
 
-  def initialize(frontmatter_parser)
+  def initialize(frontmatter_parser, language_resolver)
     @frontmatter_parser = frontmatter_parser
+    @language_resolver = language_resolver
   end
 
   def parse_code_block_header(line)
@@ -62,7 +63,7 @@ class CodeBlockParser
   private
 
   def resolve_language(lang)
-    @frontmatter_parser.resolve_language(lang)
+    @language_resolver.resolve_language(lang)
   end
 
   def parse_boolean_option(options_string, option_name, default_value)

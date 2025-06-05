@@ -1,16 +1,21 @@
 require "yaml"
 require_relative "enum_helper"
+require_relative "language_resolver"
 
 class FrontmatterParser
   include EnumHelper
 
-  def initialize
-    @aliases = {}
+  def initialize(language_resolver = nil)
+    @language_resolver = language_resolver || LanguageResolver.new
     @defaults = {}
     @language_defaults = {}
   end
 
-  attr_reader :aliases, :defaults, :language_defaults
+  attr_reader :defaults, :language_defaults
+
+  def language_resolver
+    @language_resolver
+  end
 
   def parse_frontmatter(file_enum, output_lines)
     first_line = peek_next_line(file_enum)
@@ -21,7 +26,7 @@ class FrontmatterParser
   end
 
   def resolve_language(lang)
-    @aliases[lang] || lang
+    @language_resolver.resolve_language(lang)
   end
 
   def get_default_value(option_name, language, fallback_default)
@@ -83,13 +88,15 @@ class FrontmatterParser
     # Extract aliases
     aliases = markdown_run_config["alias"]
     if aliases.is_a?(Array)
+      new_aliases = {}
       aliases.each do |alias_config|
         next unless alias_config.is_a?(Hash)
 
         alias_config.each do |alias_name, target_lang|
-          @aliases[alias_name.to_s] = target_lang.to_s
+          new_aliases[alias_name.to_s] = target_lang.to_s
         end
       end
+      @language_resolver.update_aliases(new_aliases)
     end
 
     # Extract defaults

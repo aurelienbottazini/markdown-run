@@ -1,4 +1,5 @@
 require_relative "language_configs"
+require_relative "language_resolver"
 require_relative "frontmatter_parser"
 require_relative "code_block_parser"
 require_relative "code_executor"
@@ -20,8 +21,9 @@ class MarkdownProcessor
     @output_lines = []
     reset_code_block_state
 
-    @frontmatter_parser = FrontmatterParser.new
-    @code_block_parser = CodeBlockParser.new(@frontmatter_parser)
+    @language_resolver = LanguageResolver.new
+    @frontmatter_parser = FrontmatterParser.new(@language_resolver)
+    @code_block_parser = CodeBlockParser.new(@frontmatter_parser, @language_resolver)
   end
 
   def process_file(file_enum)
@@ -38,9 +40,7 @@ class MarkdownProcessor
 
   private
 
-  def resolve_language(lang)
-    @frontmatter_parser.resolve_language(lang)
-  end
+
 
   def is_block_end?(line)
     @code_block_parser.is_block_end?(line)
