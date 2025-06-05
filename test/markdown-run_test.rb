@@ -64,10 +64,20 @@ class TestMarkdownRun < Minitest::Test
     create_md_file(md_content)
     MarkdownRun.run_code_blocks(@test_md_file_path)
 
-    file_content = read_md_file
-    assert file_content.include?("```ruby\nputs \"Hello from Ruby\""), "Original Ruby code should be present"
-    assert file_content.include?("```ruby RESULT\n"), "Ruby RESULT block should be created"
-    assert file_content.include?("3"), "Output from p 1 + 2 should be in the result"
+    expected_output = <<~MARKDOWN.strip
+      ```ruby
+      puts "Hello from Ruby"
+      p 1 + 2
+      ```
+
+      ```ruby RESULT
+      puts "Hello from Ruby"
+      p 1 + 2
+      # >> Hello from Ruby
+      # >> 3
+      ```
+    MARKDOWN
+    assert_equal expected_output, read_md_file.strip
   end
 
   def test_skip_execution_if_result_block_exists
@@ -121,10 +131,24 @@ class TestMarkdownRun < Minitest::Test
     create_md_file(md_content)
     MarkdownRun.run_code_blocks(@test_md_file_path)
 
-    file_content = read_md_file
-    assert file_content.include?("```sql\nSELECT 'aliased to psql' as test;"), "Original SQL code should be present"
-    assert file_content.include?("```RESULT\n"), "RESULT block should be created for aliased language"
-    assert file_content.include?("aliased to psql"), "Output should contain the expected result"
+    expected_output = <<~MARKDOWN.strip
+      ---
+      markdown-run:
+        alias:
+          - sql: psql
+      ---
+
+      # Test Document
+
+      ```sql
+      SELECT 'aliased to psql' as test;
+      ```
+
+      ```RESULT
+      aliased to psql
+      ```
+    MARKDOWN
+    assert_equal expected_output, read_md_file.strip
   end
 
   def test_rerun_functionality
@@ -141,9 +165,16 @@ class TestMarkdownRun < Minitest::Test
     create_md_file(md_content_with_result)
     MarkdownRun.run_code_blocks(@test_md_file_path)
 
-    file_content = read_md_file
-    assert file_content.include?("Should not change: 999999999"), "Default behavior should preserve existing result"
-    refute file_content.match?(/Should not change: (?!999999999)\d+/), "Default behavior should not generate new timestamp"
+    expected_output = <<~MARKDOWN.strip
+      ```ruby
+      puts "Should not change: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      Should not change: 999999999
+      ```
+    MARKDOWN
+    assert_equal expected_output, read_md_file.strip
 
     # Test 2: rerun=false should skip existing result
     md_content_rerun_false = <<~MARKDOWN
@@ -158,9 +189,16 @@ class TestMarkdownRun < Minitest::Test
     create_md_file(md_content_rerun_false)
     MarkdownRun.run_code_blocks(@test_md_file_path)
 
-    file_content = read_md_file
-    assert file_content.include?("Should not change either: 888888888"), "rerun=false should preserve existing result"
-    refute file_content.match?(/Should not change either: (?!888888888)\d+/), "rerun=false should not generate new timestamp"
+    expected_output = <<~MARKDOWN.strip
+      ```ruby rerun=false
+      puts "Should not change either: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      Should not change either: 888888888
+      ```
+    MARKDOWN
+    assert_equal expected_output, read_md_file.strip
 
     # Test 3: rerun=true should replace existing result
     md_content_rerun_true = <<~MARKDOWN
@@ -207,9 +245,17 @@ class TestMarkdownRun < Minitest::Test
     create_md_file(md_content_default)
     MarkdownRun.run_code_blocks(@test_md_file_path)
 
-    file_content = read_md_file
-    assert file_content.include?("```ruby RESULT"), "Default behavior should create result block"
-    assert file_content.include?("Should execute by default"), "Default behavior should execute and show output"
+    expected_output = <<~MARKDOWN.strip
+      ```ruby
+      puts "Should execute by default"
+      ```
+
+      ```ruby RESULT
+      puts "Should execute by default"
+      # >> Should execute by default
+      ```
+    MARKDOWN
+    assert_equal expected_output, read_md_file.strip
 
     # Test 2: run=true explicit should execute new code block
     md_content_run_true = <<~MARKDOWN
@@ -220,9 +266,17 @@ class TestMarkdownRun < Minitest::Test
     create_md_file(md_content_run_true)
     MarkdownRun.run_code_blocks(@test_md_file_path)
 
-    file_content = read_md_file
-    assert file_content.include?("```ruby RESULT"), "run=true should create result block"
-    assert file_content.include?("Should execute with run=true"), "run=true should execute and show output"
+    expected_output = <<~MARKDOWN.strip
+      ```ruby run=true
+      puts "Should execute with run=true"
+      ```
+
+      ```ruby RESULT
+      puts "Should execute with run=true"
+      # >> Should execute with run=true
+      ```
+    MARKDOWN
+    assert_equal expected_output, read_md_file.strip
 
     # Test 3: run=false should not execute at all (no result block created)
     md_content_run_false = <<~MARKDOWN
@@ -234,10 +288,13 @@ class TestMarkdownRun < Minitest::Test
     create_md_file(md_content_run_false)
     MarkdownRun.run_code_blocks(@test_md_file_path)
 
-    file_content = read_md_file
-    refute file_content.include?("```ruby RESULT"), "run=false should not create result block"
-    refute file_content.match?(/puts "Should not execute"\n# >>/), "run=false should not execute code (no # >> output)"
-    assert file_content.include?("puts \"Should not execute\""), "run=false should preserve original code block"
+    expected_output = <<~MARKDOWN.strip
+      ```ruby run=false
+      puts "Should not execute"
+      puts "No result block should be created"
+      ```
+    MARKDOWN
+    assert_equal expected_output, read_md_file.strip
 
     # Test 4: run=false with existing result block should skip execution but preserve result
     md_content_run_false_with_result = <<~MARKDOWN
@@ -252,9 +309,16 @@ class TestMarkdownRun < Minitest::Test
     create_md_file(md_content_run_false_with_result)
     MarkdownRun.run_code_blocks(@test_md_file_path)
 
-    file_content = read_md_file
-    assert file_content.include?("Old result that should be preserved"), "run=false should preserve existing result"
-    refute file_content.match?(/puts "Should not execute"\n# >>/), "run=false should not create new execution output"
+    expected_output = <<~MARKDOWN.strip
+      ```ruby run=false
+      puts "Should not execute"
+      ```
+
+      ```ruby RESULT
+      Old result that should be preserved
+      ```
+    MARKDOWN
+    assert_equal expected_output, read_md_file.strip
 
     # Test 5: Combined options - run=false with rerun=true should still not execute
     md_content_combined = <<~MARKDOWN
@@ -269,9 +333,16 @@ class TestMarkdownRun < Minitest::Test
     create_md_file(md_content_combined)
     MarkdownRun.run_code_blocks(@test_md_file_path)
 
-    file_content = read_md_file
-    assert file_content.include?("Existing result"), "run=false should override rerun=true"
-    refute file_content.match?(/puts "Should not execute despite rerun=true"\n# >>/), "run=false should prevent execution even with rerun=true"
+    expected_output = <<~MARKDOWN.strip
+      ```ruby run=false rerun=true
+      puts "Should not execute despite rerun=true"
+      ```
+
+      ```ruby RESULT
+      Existing result
+      ```
+    MARKDOWN
+    assert_equal expected_output, read_md_file.strip
 
     # Test 6: Combined options - run=true with rerun=false should execute if no result exists
     md_content_run_true_rerun_false = <<~MARKDOWN
@@ -282,9 +353,17 @@ class TestMarkdownRun < Minitest::Test
     create_md_file(md_content_run_true_rerun_false)
     MarkdownRun.run_code_blocks(@test_md_file_path)
 
-    file_content = read_md_file
-    assert file_content.include?("```ruby RESULT"), "run=true rerun=false should execute when no result exists"
-    assert file_content.include?("Should execute because no result exists"), "run=true rerun=false should show output when no result exists"
+    expected_output = <<~MARKDOWN.strip
+      ```ruby run=true rerun=false
+      puts "Should execute because no result exists"
+      ```
+
+      ```ruby RESULT
+      puts "Should execute because no result exists"
+      # >> Should execute because no result exists
+      ```
+    MARKDOWN
+    assert_equal expected_output, read_md_file.strip
   end
 
   def test_mermaid_block_execution
@@ -301,6 +380,7 @@ class TestMarkdownRun < Minitest::Test
     MarkdownRun.run_code_blocks(@test_md_file_path)
 
     file_content = read_md_file
+    # Test for the structure since the SVG filename is dynamic
     assert file_content.include?("```mermaid"), "Original mermaid code should be present"
     assert file_content.match?(/!\[Mermaid Diagram\]\(.+\.svg\)/), "Mermaid should generate SVG image tag"
     refute file_content.include?("```RESULT"), "Mermaid should not create a RESULT block"
@@ -336,9 +416,17 @@ class TestMarkdownRun < Minitest::Test
     File.write(test_file_2, md_content_standalone_run)
     MarkdownRun.run_code_blocks(test_file_2)
 
-    file_content = File.read(test_file_2)
-    assert file_content.include?("```ruby RESULT"), "Standalone run should create result block"
-    assert file_content.include?("Standalone run test"), "Standalone run should execute and show output"
+    expected_output = <<~MARKDOWN.strip
+      ```ruby run
+      puts "Standalone run test"
+      ```
+
+      ```ruby RESULT
+      puts "Standalone run test"
+      # >> Standalone run test
+      ```
+    MARKDOWN
+    assert_equal expected_output, File.read(test_file_2).strip
 
     # Test 3: explicit option should override standalone option
     md_content_mixed_options = <<~MARKDOWN
@@ -354,10 +442,16 @@ class TestMarkdownRun < Minitest::Test
     File.write(test_file_3, md_content_mixed_options)
     MarkdownRun.run_code_blocks(test_file_3)
 
-    file_content = File.read(test_file_3)
-    assert file_content.include?("Existing result to preserve"), "run=false should override standalone rerun"
-    # Since run=false, the code should not execute and the result should remain unchanged
-    refute file_content.match?(/Execution test: \d+/), "run=false should prevent execution and result generation"
+    expected_output = <<~MARKDOWN.strip
+      ```ruby rerun run=false
+      puts "Execution test: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      Existing result to preserve
+      ```
+    MARKDOWN
+    assert_equal expected_output, File.read(test_file_3).strip
   end
 
   def test_explain_option_syntax
@@ -401,9 +495,16 @@ class TestMarkdownRun < Minitest::Test
     File.write(test_file_3, md_content_false)
     MarkdownRun.run_code_blocks(test_file_3)
 
-    file_content = File.read(test_file_3)
-    assert file_content.include?("```RESULT"), "Result block should be created for normal query"
-    assert file_content.include?("normal query"), "Output should contain the query result"
+    expected_output = <<~MARKDOWN.strip
+      ```psql explain=false
+      SELECT 'normal query' as test;
+      ```
+
+      ```RESULT
+      normal query
+      ```
+    MARKDOWN
+    assert_equal expected_output, File.read(test_file_3).strip
   end
 
   def test_result_option
@@ -417,10 +518,12 @@ class TestMarkdownRun < Minitest::Test
     File.write(test_file_1, md_content_result_false)
     MarkdownRun.run_code_blocks(test_file_1)
 
-    file_content = File.read(test_file_1)
-    assert file_content.include?("```ruby result=false run"), "Original code block should be preserved"
-    refute file_content.include?("```ruby RESULT"), "Result block should not be created when result=false"
-    # The code executes but the result block is hidden, so we don't check for output
+    expected_output = <<~MARKDOWN.strip
+      ```ruby result=false run
+      puts "This result should be hidden"
+      ```
+    MARKDOWN
+    assert_equal expected_output, File.read(test_file_1).strip
 
     # Test 2: result=true should show the result block (explicit true)
     md_content_result_true = <<~MARKDOWN
@@ -432,10 +535,17 @@ class TestMarkdownRun < Minitest::Test
     File.write(test_file_2, md_content_result_true)
     MarkdownRun.run_code_blocks(test_file_2)
 
-    file_content = File.read(test_file_2)
-    assert file_content.include?("```ruby result=true run"), "Original code block should be preserved"
-    assert file_content.include?("```ruby RESULT"), "Result block should be created when result=true"
-    assert file_content.include?("This result should be visible"), "Result output should appear"
+    expected_output = <<~MARKDOWN.strip
+      ```ruby result=true run
+      puts "This result should be visible"
+      ```
+
+      ```ruby RESULT
+      puts "This result should be visible"
+      # >> This result should be visible
+      ```
+    MARKDOWN
+    assert_equal expected_output, File.read(test_file_2).strip
 
     # Test 3: Default behavior (no result option) should show result block
     md_content_default = <<~MARKDOWN
@@ -447,10 +557,17 @@ class TestMarkdownRun < Minitest::Test
     File.write(test_file_3, md_content_default)
     MarkdownRun.run_code_blocks(test_file_3)
 
-    file_content = File.read(test_file_3)
-    assert file_content.include?("```ruby run"), "Original code block should be preserved"
-    assert file_content.include?("```ruby RESULT"), "Result block should be created by default"
-    assert file_content.include?("Default behavior result"), "Result output should appear by default"
+    expected_output = <<~MARKDOWN.strip
+      ```ruby run
+      puts "Default behavior result"
+      ```
+
+      ```ruby RESULT
+      puts "Default behavior result"
+      # >> Default behavior result
+      ```
+    MARKDOWN
+    assert_equal expected_output, File.read(test_file_3).strip
 
     # Test 4: Standalone result option should default to true
     md_content_standalone = <<~MARKDOWN
@@ -462,10 +579,17 @@ class TestMarkdownRun < Minitest::Test
     File.write(test_file_4, md_content_standalone)
     MarkdownRun.run_code_blocks(test_file_4)
 
-    file_content = File.read(test_file_4)
-    assert file_content.include?("```ruby result run"), "Original code block should be preserved"
-    assert file_content.include?("```ruby RESULT"), "Result block should be created for standalone result"
-    assert file_content.include?("Standalone result option"), "Result output should appear for standalone result"
+    expected_output = <<~MARKDOWN.strip
+      ```ruby result run
+      puts "Standalone result option"
+      ```
+
+      ```ruby RESULT
+      puts "Standalone result option"
+      # >> Standalone result option
+      ```
+    MARKDOWN
+    assert_equal expected_output, File.read(test_file_4).strip
   end
 
   def test_result_option_with_psql_explain
@@ -535,9 +659,18 @@ class TestMarkdownRun < Minitest::Test
     File.write(test_file_1b, md_content_global_result_false)
     MarkdownRun.run_code_blocks(test_file_1b)
 
-    file_content = File.read(test_file_1b)
-    # result: false should hide the result block
-    refute file_content.include?("```ruby RESULT"), "Global result=false default should hide result block"
+    expected_output = <<~MARKDOWN.strip
+      ---
+      markdown-run:
+        defaults:
+          result: false
+      ---
+
+      ```ruby
+      puts "Global result false test"
+      ```
+    MARKDOWN
+    assert_equal expected_output, File.read(test_file_1b).strip
 
     # Test language-specific defaults
     md_content_lang_defaults = <<~MARKDOWN
