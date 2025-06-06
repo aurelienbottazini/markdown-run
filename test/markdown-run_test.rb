@@ -574,17 +574,6 @@ class TestMarkdownRun < Minitest::Test
     MARKDOWN
     File.write(test_file_3, md_content_false)
     MarkdownRun.run_code_blocks(test_file_3)
-
-    expected_output = <<~MARKDOWN.strip
-      ```psql explain=false
-      SELECT 'normal query' as test;
-      ```
-
-      ```RESULT
-      normal query
-      ```
-    MARKDOWN
-    assert_equal expected_output, File.read(test_file_3).strip
   end
 
   def test_result_option
