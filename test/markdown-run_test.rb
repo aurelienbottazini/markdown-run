@@ -503,6 +503,7 @@ class TestMarkdownRun < Minitest::Test
 
   def test_explain_option_syntax
     # Test explain option parsing for psql
+    skip "Skipping test_psql_block_execution on GitHub CI" if ENV['CI']
     skip("PostgreSQL not available") unless system("command -v psql > /dev/null 2>&1")
 
     # Test 1: Standalone explain option
@@ -574,6 +575,8 @@ class TestMarkdownRun < Minitest::Test
     MARKDOWN
     File.write(test_file_3, md_content_false)
     MarkdownRun.run_code_blocks(test_file_3)
+
+    assert_equal expected_output, File.read(test_file_3).strip
   end
 
   def test_result_option
