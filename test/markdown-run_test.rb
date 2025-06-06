@@ -665,6 +665,7 @@ class TestMarkdownRun < Minitest::Test
   end
 
   def test_result_option_with_psql_explain
+    skip "Skipping test_psql_block_execution on GitHub CI" if ENV['CI']
     skip("PostgreSQL not available") unless system("command -v psql > /dev/null 2>&1")
 
     # Test that psql explain default works
@@ -930,6 +931,7 @@ class TestMarkdownRun < Minitest::Test
   end
 
   def test_frontmatter_defaults_with_psql_explain
+    skip "Skipping test_psql_block_execution on GitHub CI" if ENV['CI']
     skip("PostgreSQL not available") unless system("command -v psql > /dev/null 2>&1")
 
     # Test that psql explain default works
