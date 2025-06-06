@@ -214,8 +214,22 @@ class TestMarkdownRun < Minitest::Test
     MarkdownRun.run_code_blocks(@test_md_file_path)
 
     file_content = read_md_file
-    refute file_content.include?("Should change: 777777777"), "rerun=true should replace existing result"
-    assert file_content.match?(/Should change: \d+/), "rerun=true should generate new result with actual timestamp"
+    # Extract the actual timestamp from the output and build expected output
+    timestamp_match = file_content.match(/Should change: (\d+)/)
+    assert timestamp_match, "Should find generated timestamp in output"
+    actual_timestamp = timestamp_match[1]
+
+    expected_output = <<~MARKDOWN.strip
+      ```ruby rerun=true
+      puts "Should change: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      puts "Should change: \#{Time.now.to_i}"
+      # >> Should change: #{actual_timestamp}
+      ```
+    MARKDOWN
+    assert_equal expected_output, file_content.strip
 
     # Test 4: rerun=true with blank line before result block
     md_content_rerun_true_blank = <<~MARKDOWN
@@ -231,8 +245,22 @@ class TestMarkdownRun < Minitest::Test
     MarkdownRun.run_code_blocks(@test_md_file_path)
 
     file_content = read_md_file
-    refute file_content.include?("Should also change: 666666666"), "rerun=true with blank line should replace existing result"
-    assert file_content.match?(/Should also change: \d+/), "rerun=true with blank line should generate new result"
+    # Extract the actual timestamp from the output and build expected output
+    timestamp_match = file_content.match(/Should also change: (\d+)/)
+    assert timestamp_match, "Should find generated timestamp in output"
+    actual_timestamp = timestamp_match[1]
+
+    expected_output = <<~MARKDOWN.strip
+      ```ruby rerun=true
+      puts "Should also change: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      puts "Should also change: \#{Time.now.to_i}"
+      # >> Should also change: #{actual_timestamp}
+      ```
+    MARKDOWN
+    assert_equal expected_output, file_content.strip
   end
 
   def test_run_functionality
@@ -380,10 +408,21 @@ class TestMarkdownRun < Minitest::Test
     MarkdownRun.run_code_blocks(@test_md_file_path)
 
     file_content = read_md_file
-    # Test for the structure since the SVG filename is dynamic
-    assert file_content.include?("```mermaid"), "Original mermaid code should be present"
-    assert file_content.match?(/!\[Mermaid Diagram\]\(.+\.svg\)/), "Mermaid should generate SVG image tag"
-    refute file_content.include?("```RESULT"), "Mermaid should not create a RESULT block"
+    # Extract the actual SVG filename from the output and build expected output
+    svg_match = file_content.match(/!\[Mermaid Diagram\]\((.+\.svg)\)/)
+    assert svg_match, "Should find generated SVG filename in output"
+    actual_svg_filename = svg_match[1]
+
+    expected_output = <<~MARKDOWN.strip
+      ```mermaid
+      graph TD
+          A[Start] --> B[Process]
+          B --> C[End]
+      ```
+
+      ![Mermaid Diagram](#{actual_svg_filename})
+    MARKDOWN
+    assert_equal expected_output, file_content.strip
   end
 
   def test_standalone_option_syntax
@@ -402,9 +441,22 @@ class TestMarkdownRun < Minitest::Test
     MarkdownRun.run_code_blocks(test_file_1)
 
     file_content = File.read(test_file_1)
-    assert file_content.include?("```ruby RESULT"), "Standalone rerun should create result block"
-    refute file_content.include?("Standalone rerun test: 999999999"), "Standalone rerun should replace existing result"
-    assert file_content.match?(/Standalone rerun test: \d+/), "Standalone rerun should generate new result"
+    # Extract the actual timestamp from the output and build expected output
+    timestamp_match = file_content.match(/Standalone rerun test: (\d+)/)
+    assert timestamp_match, "Should find generated timestamp in output"
+    actual_timestamp = timestamp_match[1]
+
+    expected_output = <<~MARKDOWN.strip
+      ```ruby rerun
+      puts "Standalone rerun test: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      puts "Standalone rerun test: \#{Time.now.to_i}"
+      # >> Standalone rerun test: #{actual_timestamp}
+      ```
+    MARKDOWN
+    assert_equal expected_output, file_content.strip
 
     # Test 2: standalone run should work like run=true (default behavior)
     md_content_standalone_run = <<~MARKDOWN
@@ -468,9 +520,25 @@ class TestMarkdownRun < Minitest::Test
     File.write(test_file_1, md_content_standalone)
     MarkdownRun.run_code_blocks(test_file_1)
 
-    file_content = File.read(test_file_1)
-    assert file_content.include?("```RESULT"), "Result block should be created for explain query"
-    # We can't test for specific explain output since it depends on PostgreSQL being configured
+        file_content = File.read(test_file_1)
+    # Extract the dynamic explain result and build expected output
+    result_match = file_content.match(/```RESULT\n(.*?)\n```\n\n(.*)$/m)
+    assert result_match, "Should find RESULT block in output"
+    actual_result = result_match[1]
+    dalibo_link = result_match[2]
+
+    expected_output = <<~MARKDOWN.strip
+      ```psql explain
+      SELECT 1 as simple_test;
+      ```
+
+      ```RESULT
+      #{actual_result}
+      ```
+
+      #{dalibo_link}
+    MARKDOWN
+    assert_equal expected_output, file_content.strip
 
     # Test 2: Explicit explain=true option
     test_file_2 = File.join(@temp_dir, "test_explain_explicit.md")
@@ -482,8 +550,25 @@ class TestMarkdownRun < Minitest::Test
     File.write(test_file_2, md_content_explicit)
     MarkdownRun.run_code_blocks(test_file_2)
 
-    file_content = File.read(test_file_2)
-    assert file_content.include?("```RESULT"), "Result block should be created for explicit explain=true"
+        file_content = File.read(test_file_2)
+    # Extract the dynamic explain result and build expected output
+    result_match = file_content.match(/```RESULT\n(.*?)\n```\n\n(.*)$/m)
+    assert result_match, "Should find RESULT block in output"
+    actual_result = result_match[1]
+    dalibo_link = result_match[2]
+
+    expected_output = <<~MARKDOWN.strip
+      ```psql explain=true
+      SELECT version();
+      ```
+
+      ```RESULT
+      #{actual_result}
+      ```
+
+      #{dalibo_link}
+    MARKDOWN
+    assert_equal expected_output, file_content.strip
 
     # Test 3: Explicit explain=false should work normally
     test_file_3 = File.join(@temp_dir, "test_explain_false.md")
@@ -611,10 +696,31 @@ class TestMarkdownRun < Minitest::Test
     File.write(test_file, md_content_psql_explain)
     MarkdownRun.run_code_blocks(test_file)
 
-    file_content = File.read(test_file)
-    assert file_content.include?("```RESULT"), "PSQL explain default should create result block"
-    # The result should contain explain plan rather than simple query result
-    # We can't test for specific explain output since it depends on PostgreSQL configuration
+            file_content = File.read(test_file)
+    # Extract the dynamic explain result and build expected output
+    result_match = file_content.match(/```RESULT\n(.*?)\n```\n\n(.*)$/m)
+    assert result_match, "Should find RESULT block in output"
+    actual_result = result_match[1]
+    dalibo_link = result_match[2]
+
+    expected_output = <<~MARKDOWN.strip
+      ---
+      markdown-run:
+        psql:
+          explain: true
+      ---
+
+      ```psql
+      SELECT 'explain default test' as test;
+      ```
+
+      ```RESULT
+      #{actual_result}
+      ```
+
+      #{dalibo_link}
+    MARKDOWN
+    assert_equal expected_output, file_content.strip
   end
 
   def test_frontmatter_defaults
@@ -639,9 +745,28 @@ class TestMarkdownRun < Minitest::Test
     MarkdownRun.run_code_blocks(test_file_1)
 
     file_content = File.read(test_file_1)
-    # rerun: true should cause the old result to be replaced
-    refute file_content.include?("Global rerun test: 12345678"), "Global rerun default should replace existing result"
-    assert file_content.match?(/Global rerun test: \d+/), "Global rerun default should generate new result"
+    # Extract the actual timestamp from the output and build expected output
+    timestamp_match = file_content.match(/Global rerun test: (\d+)/)
+    assert timestamp_match, "Should find generated timestamp in output"
+    actual_timestamp = timestamp_match[1]
+
+    expected_output = <<~MARKDOWN.strip
+      ---
+      markdown-run:
+        defaults:
+          rerun: true
+      ---
+
+      ```ruby
+      puts "Global rerun test: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      puts "Global rerun test: \#{Time.now.to_i}"
+      # >> Global rerun test: #{actual_timestamp}
+      ```
+    MARKDOWN
+    assert_equal expected_output, file_content.strip
 
     # Test global defaults - result=false
     md_content_global_result_false = <<~MARKDOWN
@@ -695,9 +820,30 @@ class TestMarkdownRun < Minitest::Test
     MarkdownRun.run_code_blocks(test_file_2)
 
     file_content = File.read(test_file_2)
-    # Language-specific rerun: true should replace existing result
-    refute file_content.include?("Language-specific ruby test: 87654321"), "Language-specific rerun should replace existing result"
-    assert file_content.match?(/Language-specific ruby test: \d+/), "Language-specific rerun should generate new result"
+    # Extract the actual timestamp from the output and build expected output
+    timestamp_match = file_content.match(/Language-specific ruby test: (\d+)/)
+    assert timestamp_match, "Should find generated timestamp in output"
+    actual_timestamp = timestamp_match[1]
+
+    expected_output = <<~MARKDOWN.strip
+      ---
+      markdown-run:
+        ruby:
+          rerun: true
+        psql:
+          explain: true
+      ---
+
+      ```ruby
+      puts "Language-specific ruby test: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      puts "Language-specific ruby test: \#{Time.now.to_i}"
+      # >> Language-specific ruby test: #{actual_timestamp}
+      ```
+    MARKDOWN
+    assert_equal expected_output, file_content.strip
 
     # Test priority: explicit options > language defaults > global defaults
     md_content_priority = <<~MARKDOWN
@@ -722,9 +868,30 @@ class TestMarkdownRun < Minitest::Test
     MarkdownRun.run_code_blocks(test_file_3)
 
     file_content = File.read(test_file_3)
-    # Explicit rerun=true should override language default rerun=false
-    refute file_content.include?("Priority test: 11111111"), "Explicit option should override language default"
-    assert file_content.match?(/Priority test: \d+/), "Explicit option should generate new result"
+    # Extract the actual timestamp from the output and build expected output
+    timestamp_match = file_content.match(/Priority test: (\d+)/)
+    assert timestamp_match, "Should find generated timestamp in output"
+    actual_timestamp = timestamp_match[1]
+
+    expected_output = <<~MARKDOWN.strip
+      ---
+      markdown-run:
+        defaults:
+          rerun: true
+        ruby:
+          rerun: false
+      ---
+
+      ```ruby rerun=true
+      puts "Priority test: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      puts "Priority test: \#{Time.now.to_i}"
+      # >> Priority test: #{actual_timestamp}
+      ```
+    MARKDOWN
+    assert_equal expected_output, file_content.strip
 
     # Test that language defaults override global defaults
     md_content_override = <<~MARKDOWN
@@ -749,9 +916,30 @@ class TestMarkdownRun < Minitest::Test
     MarkdownRun.run_code_blocks(test_file_4)
 
     file_content = File.read(test_file_4)
-    # Language-specific rerun: true should override global rerun: false
-    refute file_content.include?("Override test: 22222222"), "Language default should override global default"
-    assert file_content.match?(/Override test: \d+/), "Language default should generate new result"
+    # Extract the actual timestamp from the output and build expected output
+    timestamp_match = file_content.match(/Override test: (\d+)/)
+    assert timestamp_match, "Should find generated timestamp in output"
+    actual_timestamp = timestamp_match[1]
+
+    expected_output = <<~MARKDOWN.strip
+      ---
+      markdown-run:
+        defaults:
+          rerun: false
+        ruby:
+          rerun: true
+      ---
+
+      ```ruby
+      puts "Override test: \#{Time.now.to_i}"
+      ```
+
+      ```ruby RESULT
+      puts "Override test: \#{Time.now.to_i}"
+      # >> Override test: #{actual_timestamp}
+      ```
+    MARKDOWN
+    assert_equal expected_output, file_content.strip
   end
 
   def test_frontmatter_defaults_with_psql_explain
@@ -774,10 +962,29 @@ class TestMarkdownRun < Minitest::Test
     MarkdownRun.run_code_blocks(test_file)
 
     file_content = File.read(test_file)
-    assert file_content.include?("```RESULT"), "PSQL explain default should create result block"
-    # The result should contain explain plan rather than simple query result
-    # We can't test for specific explain output since it depends on PostgreSQL configuration
-  end
+    # Extract the dynamic explain result and build expected output
+    result_match = file_content.match(/```RESULT\n(.*?)\n```\n\n(.*)$/m)
+    assert result_match, "Should find RESULT block in output"
+    actual_result = result_match[1]
+    dalibo_link = result_match[2]
 
-  private
+    expected_output = <<~MARKDOWN.strip
+      ---
+      markdown-run:
+        psql:
+          explain: true
+      ---
+
+      ```psql
+      SELECT 'explain default test' as test;
+      ```
+
+      ```RESULT
+      #{actual_result}
+      ```
+
+      #{dalibo_link}
+    MARKDOWN
+    assert_equal expected_output, file_content.strip
+  end
 end
