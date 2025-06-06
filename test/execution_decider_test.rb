@@ -1,8 +1,6 @@
-require "minitest/autorun"
-
-# Require the execution decider
-require_relative "../lib/execution_decider"
-require_relative "../lib/enum_helper"
+require_relative 'test_helper'
+require_relative '../lib/execution_decider'
+require_relative '../lib/enum_helper'
 
 # --- Minitest Test Class Definition ---
 class TestExecutionDecider < Minitest::Test

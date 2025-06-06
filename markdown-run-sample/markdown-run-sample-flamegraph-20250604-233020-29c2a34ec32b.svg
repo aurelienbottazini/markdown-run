@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1200" height="104" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .frame { stroke: white; stroke-width: 1; cursor: pointer; }
+    .frame:hover { stroke: black; stroke-width: 2; }
+    .frame-text { font-family: monospace; font-size: 20px; fill: white; pointer-events: none; }
+    .title { font-family: Arial; font-size: 16px; font-weight: bold; fill: #333; }
+    .subtitle { font-family: Arial; font-size: 12px; fill: #666; }
+  </style>
+
+  <!-- Title -->
+  <text x="600" y="20" class="title" text-anchor="middle">PostgreSQL Query Execution Plan Flamegraph</text>
+  <text x="600" y="35" class="subtitle" text-anchor="middle">Total Execution Time: 0.0ms</text>
+
+  <!-- Flamegraph -->
+  <g transform="translate(0, 45)">
+      <rect class="frame"
+            x="0.0"
+            y="0"
+            width="1200.0"
+            height="24"
+            fill="#95a5a6">
+        <title>Result [0.0ms]
+Time: 0.0ms
+Percentage: 100.0%</title>
+      </rect>
+<text class="frame-text" x="4.0" y="21">Result [0.0ms]</text>
+  </g>
+</svg>

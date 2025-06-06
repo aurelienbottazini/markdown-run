@@ -1,9 +1,4 @@
-require "minitest/autorun"
-require "fileutils"
-require "tmpdir"
-
-# Require the markdown run module
-require_relative "../lib/markdown_run"
+require_relative 'test_helper'
 
 # --- Minitest Test Class Definition ---
 class TestMarkdownRun < Minitest::Test

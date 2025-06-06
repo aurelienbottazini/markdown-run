@@ -1,3 +1,4 @@
+require "bundler/gem_tasks"
 require "rake/testtask"
 
 Rake::TestTask.new(:test) do |t|
@@ -27,6 +28,21 @@ task :release do
   `git push`
   `git push --tags`
   `gem release`
+end
+
+# Coverage task
+desc "Run tests with SimpleCov coverage report"
+task :coverage do
+  ENV['COVERAGE'] = 'true'
+  Rake::Task[:test].invoke
+
+  puts "\n🎯 Coverage Report Generated!"
+  puts "📊 Open coverage/index.html to view detailed coverage report"
+
+  # Try to open coverage report automatically (works on macOS)
+  if RUBY_PLATFORM.include?('darwin')
+    system('open coverage/index.html')
+  end
 end
 
 task default: :test
