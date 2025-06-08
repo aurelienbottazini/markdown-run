@@ -15,9 +15,28 @@ jobs:
       matrix:
         ruby:
           - '3.2.2'
+    
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
 
     steps:
     - uses: actions/checkout@v4
+    - name: Install PostgreSQL client
+      run: |
+        sudo apt-get update
+        sudo apt-get install --yes postgresql-client
     - name: Set up Ruby
       uses: ruby/setup-ruby@v1
       with:
@@ -25,3 +44,9 @@ jobs:
         bundler-cache: true
     - name: Run tests
       run: bundle exec rake test
+      env:
+        PGHOST: localhost
+        PGPORT: 5432
+        PGUSER: postgres
+        PGPASSWORD: postgres
+        PGDATABASE: test
