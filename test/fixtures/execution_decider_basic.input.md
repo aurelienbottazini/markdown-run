@@ -1,3 +1,3 @@
-```psql
+```sql
 SELECT 'basic test';
 ```
