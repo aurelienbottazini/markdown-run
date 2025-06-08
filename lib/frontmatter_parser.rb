@@ -1,6 +1,7 @@
 require "yaml"
 require_relative "enum_helper"
 require_relative "language_resolver"
+require_relative "test_silencer"
 
 class FrontmatterParser
   include EnumHelper
@@ -77,7 +78,7 @@ class FrontmatterParser
       frontmatter = YAML.safe_load(frontmatter_lines.join)
       extract_aliases(frontmatter) if frontmatter.is_a?(Hash)
     rescue YAML::SyntaxError => e
-      warn "Warning: Invalid YAML frontmatter: #{e.message}"
+      TestSilencer.warn_unless_testing "Warning: Invalid YAML frontmatter: #{e.message}"
     end
   end
 

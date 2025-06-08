@@ -27,7 +27,7 @@ class CodeExecutor
   end
 
   def handle_unsupported_language(lang)
-    warn "Unsupported language: #{lang}"
+    TestSilencer.warn_unless_testing "Unsupported language: #{lang}"
     "ERROR: Unsupported language: #{lang}"
   end
 
@@ -105,8 +105,8 @@ class CodeExecutor
   end
 
   def add_error_to_output(exit_status, lang_config, lang_key, result_output, stderr_output)
-    warn "Code execution failed for language '#{lang_key}' with status #{exit_status}."
-    warn "Stderr:\n#{stderr_output}" if stderr_has_content?(stderr_output)
+    TestSilencer.warn_unless_testing "Code execution failed for language '#{lang_key}' with status #{exit_status}."
+    TestSilencer.warn_unless_testing "Stderr:\n#{stderr_output}" if stderr_has_content?(stderr_output)
 
     is_js_error_already_formatted = lang_config && lang_config[:error_handling] == :js_specific && result_output.include?("Stderr:")
     unless result_output.downcase.include?("error:") || is_js_error_already_formatted
@@ -117,15 +117,11 @@ class CodeExecutor
     result_output
   end
 
-  def stderr_has_content?(stderr_output)
-    stderr_output && !stderr_output.strip.empty?
-  end
-
   def handle_mermaid_svg_result(result, lang_key)
     output_path = result[:output_path]
 
     unless output_path && File.exist?(output_path)
-      warn "Warning: Mermaid SVG file not generated at expected path: #{output_path}"
+      TestSilencer.warn_unless_testing "Warning: Mermaid SVG file not generated at expected path: #{output_path}"
       return "Error: SVG file not generated"
     end
 
@@ -240,10 +236,10 @@ class CodeExecutor
       end
 
     rescue JSON::ParserError => e
-      warn "Error parsing EXPLAIN JSON: #{e.message}"
+      TestSilencer.warn_unless_testing "Error parsing EXPLAIN JSON: #{e.message}"
       result_output
     rescue => e
-      warn "Error generating flamegraph: #{e.message}"
+      TestSilencer.warn_unless_testing "Error generating flamegraph: #{e.message}"
       result_output
     end
   end
@@ -280,11 +276,11 @@ class CodeExecutor
           nil
         end
       else
-        warn "Failed to submit plan to Dalibo: #{response.code} #{response.message}"
+        TestSilencer.warn_unless_testing "Failed to submit plan to Dalibo: #{response.code} #{response.message}"
         nil
       end
     rescue => e
-      warn "Error submitting plan to Dalibo: #{e.message}"
+      TestSilencer.warn_unless_testing "Error submitting plan to Dalibo: #{e.message}"
       nil
     end
   end

@@ -162,7 +162,7 @@ module ResultHelper
         break if is_block_end?(result_block_line)
       end
     rescue StopIteration
-      warn "Warning: End of file reached while consuming result block."
+      TestSilencer.warn_unless_testing "Warning: End of file reached while consuming result block."
     end
   end
 end

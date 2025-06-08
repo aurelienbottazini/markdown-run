@@ -64,7 +64,7 @@ class CodeExecutorTest < Minitest::Test
     # Create a mock JS language config
     js_config = { error_handling: :js_specific }
 
-    exit_status, result_output, stderr_output = @executor.send(:format_captured_output, mock_result, js_config)
+    exit_status, result_output, _stderr_output = @executor.send(:format_captured_output, mock_result, js_config)
 
     assert_equal 1, exit_status
     assert_includes result_output, "Stderr:"
@@ -144,7 +144,7 @@ class CodeExecutorTest < Minitest::Test
     assert_includes result, "test_md/diagram.svg"
   end
 
-    def test_handle_mermaid_svg_result_success_same_directory
+  def test_handle_mermaid_svg_result_success_same_directory
     # Test Mermaid SVG handling in same directory (fallback behavior)
     svg_file = File.join(@temp_dir, "diagram.svg")
     File.write(svg_file, "<svg>test</svg>")

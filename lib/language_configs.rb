@@ -1,4 +1,5 @@
 require 'securerandom'
+require_relative 'test_silencer'
 
 JS_CONFIG = {
   command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
@@ -25,7 +26,7 @@ SUPPORTED_LANGUAGES = {
     command: ->(code_content, _temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
       psql_exists = system("command -v psql > /dev/null 2>&1")
       unless psql_exists
-        abort "Error: psql command not found. Please install PostgreSQL or ensure psql is in your PATH."
+        TestSilencer.abort_unless_testing "Error: psql command not found. Please install PostgreSQL or ensure psql is in your PATH."
       end
 
       # Modify the SQL query if explain or flamegraph option is enabled
@@ -44,7 +45,7 @@ SUPPORTED_LANGUAGES = {
     command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
       xmpfilter_exists = system("command -v xmpfilter > /dev/null 2>&1")
       unless xmpfilter_exists
-        abort "Error: xmpfilter command not found. Please install xmpfilter or ensure it is in your PATH."
+        TestSilencer.abort_unless_testing "Error: xmpfilter command not found. Please install xmpfilter or ensure it is in your PATH."
       end
       [ "xmpfilter #{temp_file_path}", {} ]
     },
@@ -60,7 +61,7 @@ SUPPORTED_LANGUAGES = {
     command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
       bash_exists = system("command -v bash > /dev/null 2>&1")
       unless bash_exists
-        abort "Error: bash command not found. Please ensure bash is in your PATH."
+        TestSilencer.abort_unless_testing "Error: bash command not found. Please ensure bash is in your PATH."
       end
       [ "bash #{temp_file_path}", {} ]
     },
@@ -70,7 +71,7 @@ SUPPORTED_LANGUAGES = {
     command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
       zsh_exists = system("command -v zsh > /dev/null 2>&1")
       unless zsh_exists
-        abort "Error: zsh command not found. Please ensure zsh is in your PATH."
+        TestSilencer.abort_unless_testing "Error: zsh command not found. Please ensure zsh is in your PATH."
       end
       [ "zsh #{temp_file_path}", {} ]
     },
@@ -80,7 +81,7 @@ SUPPORTED_LANGUAGES = {
     command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
       sh_exists = system("command -v sh > /dev/null 2>&1")
       unless sh_exists
-        abort "Error: sh command not found. Please ensure sh is in your PATH."
+        TestSilencer.abort_unless_testing "Error: sh command not found. Please ensure sh is in your PATH."
       end
       [ "sh #{temp_file_path}", {} ]
     },
@@ -90,7 +91,7 @@ SUPPORTED_LANGUAGES = {
     command: ->(code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
       mmdc_exists = system("command -v mmdc > /dev/null 2>&1")
       unless mmdc_exists
-        abort "Error: mmdc command not found. Please install @mermaid-js/mermaid-cli: npm install -g @mermaid-js/mermaid-cli"
+        TestSilencer.abort_unless_testing "Error: mmdc command not found. Please install @mermaid-js/mermaid-cli: npm install -g @mermaid-js/mermaid-cli"
       end
 
       # Generate SVG output file path with directory structure based on markdown file

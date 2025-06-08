@@ -15,7 +15,7 @@ class MarkdownFileWriter
       begin
         FileUtils.mv(temp_output_file.path, input_file_path)
       rescue Errno::EACCES, Errno::EXDEV
-        warn "Atomic move failed. Falling back to copy and delete."
+        TestSilencer.warn_unless_testing "Atomic move failed. Falling back to copy and delete."
         FileUtils.cp(temp_output_file.path, input_file_path)
         FileUtils.rm_f(temp_output_file.path)
       end

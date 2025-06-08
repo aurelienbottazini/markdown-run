@@ -14,6 +14,10 @@ require 'tmpdir'
 
 # Require your main library files
 require_relative '../lib/markdown_run'
+require_relative '../lib/test_silencer'
+
+# Set up warning suppression for cleaner test output
+TestSilencer.setup_warning_suppression
 
 # Common test functionality for markdown processing tests
 module MarkdownTestHelper

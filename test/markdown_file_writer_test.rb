@@ -65,14 +65,9 @@ class MarkdownFileWriterTest < Minitest::Test
   def test_write_output_to_file_handles_eacces_exception
     # Mock FileUtils.mv to raise EACCES
     FileUtils.stub(:mv, ->(_src, _dest) { raise Errno::EACCES.new("Permission denied") }) do
-      # Capture the warning
-      warning_output = capture_io do
-        result = MarkdownFileWriter.write_output_to_file(@output_lines, @input_file)
-        assert_equal true, result
-      end
-
-      # Verify the warning was shown
-      assert_includes warning_output[1], "Atomic move failed. Falling back to copy and delete."
+      # Test that the fallback mechanism works (warnings are silenced during tests)
+      result = MarkdownFileWriter.write_output_to_file(@output_lines, @input_file)
+      assert_equal true, result
 
       # Verify the content was still written (via the fallback mechanism)
       assert_equal "# Test\nSome content\nMore content\n", File.read(@input_file)
@@ -82,14 +77,9 @@ class MarkdownFileWriterTest < Minitest::Test
   def test_write_output_to_file_handles_exdev_exception
     # Mock FileUtils.mv to raise EXDEV (cross-device link)
     FileUtils.stub(:mv, ->(_src, _dest) { raise Errno::EXDEV.new("Invalid cross-device link") }) do
-      # Capture the warning
-      warning_output = capture_io do
-        result = MarkdownFileWriter.write_output_to_file(@output_lines, @input_file)
-        assert_equal true, result
-      end
-
-      # Verify the warning was shown
-      assert_includes warning_output[1], "Atomic move failed. Falling back to copy and delete."
+      # Test that the fallback mechanism works (warnings are silenced during tests)
+      result = MarkdownFileWriter.write_output_to_file(@output_lines, @input_file)
+      assert_equal true, result
 
       # Verify the content was still written (via the fallback mechanism)
       assert_equal "# Test\nSome content\nMore content\n", File.read(@input_file)
