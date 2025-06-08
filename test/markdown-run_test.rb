@@ -26,8 +26,6 @@ class TestMarkdownRun < Minitest::Test
     assert_equal "", read_md_file.strip, "Empty file should remain empty after processing"
   end
 
-
-
   def test_ruby_block_execution_and_result_generation
     md_content = <<~MARKDOWN
       ```ruby
@@ -54,8 +52,6 @@ class TestMarkdownRun < Minitest::Test
     assert_equal expected_output, read_md_file.strip
   end
 
-
-
   def test_skip_execution_if_ruby_result_block_exists
     original_content = <<~MARKDOWN
       ```ruby
@@ -71,8 +67,6 @@ class TestMarkdownRun < Minitest::Test
 
     assert_equal original_content.strip, read_md_file.strip, "Should not execute if ```ruby RESULT block exists"
   end
-
-
 
   def test_rerun_functionality
     # Test 1: Default behavior (no rerun option) should skip existing result
@@ -429,90 +423,23 @@ class TestMarkdownRun < Minitest::Test
     assert_equal expected_output, File.read(test_file_3).strip
   end
 
-
-
   def test_result_option
-    # Test 1: result=false should hide the result block but still execute code
-    md_content_result_false = <<~MARKDOWN
-      ```ruby result=false run
-      puts "This result should be hidden"
-      ```
-    MARKDOWN
-    test_file_1 = File.join(@temp_dir, "test_result_false.md")
-    File.write(test_file_1, md_content_result_false)
-    MarkdownRun.run_code_blocks(test_file_1)
+    test_cases = [
+      "md_content_result_false",
+      "md_content_result_true",
+      "md_content_result_default",
+      "md_content_result_standalone"
+    ]
 
-    expected_output = <<~MARKDOWN.strip
-      ```ruby result=false run
-      puts "This result should be hidden"
-      ```
-    MARKDOWN
-    assert_equal expected_output, File.read(test_file_1).strip
+    test_cases.each do |test_case|
+      input_content = File.read(File.join(__dir__, "fixtures", "#{test_case}.input.md"))
+      expected_content = File.read(File.join(__dir__, "fixtures", "#{test_case}.expected.md")).strip
 
-    # Test 2: result=true should show the result block (explicit true)
-    md_content_result_true = <<~MARKDOWN
-      ```ruby result=true run
-      puts "This result should be visible"
-      ```
-    MARKDOWN
-    test_file_2 = File.join(@temp_dir, "test_result_true.md")
-    File.write(test_file_2, md_content_result_true)
-    MarkdownRun.run_code_blocks(test_file_2)
+      test_file = File.join(@temp_dir, "#{test_case}.md")
+      File.write(test_file, input_content)
+      MarkdownRun.run_code_blocks(test_file)
 
-    expected_output = <<~MARKDOWN.strip
-      ```ruby result=true run
-      puts "This result should be visible"
-      ```
-
-      ```ruby RESULT
-      puts "This result should be visible"
-      # >> This result should be visible
-      ```
-    MARKDOWN
-    assert_equal expected_output, File.read(test_file_2).strip
-
-    # Test 3: Default behavior (no result option) should show result block
-    md_content_default = <<~MARKDOWN
-      ```ruby run
-      puts "Default behavior result"
-      ```
-    MARKDOWN
-    test_file_3 = File.join(@temp_dir, "test_result_default.md")
-    File.write(test_file_3, md_content_default)
-    MarkdownRun.run_code_blocks(test_file_3)
-
-    expected_output = <<~MARKDOWN.strip
-      ```ruby run
-      puts "Default behavior result"
-      ```
-
-      ```ruby RESULT
-      puts "Default behavior result"
-      # >> Default behavior result
-      ```
-    MARKDOWN
-    assert_equal expected_output, File.read(test_file_3).strip
-
-    # Test 4: Standalone result option should default to true
-    md_content_standalone = <<~MARKDOWN
-      ```ruby result run
-      puts "Standalone result option"
-      ```
-    MARKDOWN
-    test_file_4 = File.join(@temp_dir, "test_result_standalone.md")
-    File.write(test_file_4, md_content_standalone)
-    MarkdownRun.run_code_blocks(test_file_4)
-
-    expected_output = <<~MARKDOWN.strip
-      ```ruby result run
-      puts "Standalone result option"
-      ```
-
-      ```ruby RESULT
-      puts "Standalone result option"
-      # >> Standalone result option
-      ```
-    MARKDOWN
-    assert_equal expected_output, File.read(test_file_4).strip
+      assert_equal expected_content, File.read(test_file).strip
+    end
   end
 end
