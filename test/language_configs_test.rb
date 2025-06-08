@@ -12,43 +12,31 @@ class LanguageConfigsTest < Minitest::Test
   end
 
     def test_js_config_uses_bun_when_available
-    # Temporarily redefine system method to simulate bun being available
-    original_system = Object.method(:system)
-    Object.define_method(:system) do |command|
-      if command == "command -v bun > /dev/null 2>&1"
-        true
-      else
-        original_system.call(command)
-      end
+    # Temporarily stub system method to simulate bun being available
+    stub_system = ->(command) {
+      command == "command -v bun > /dev/null 2>&1"
+    }
+
+    TOPLEVEL_BINDING.eval('self').stub(:system, stub_system) do
+      command, options = JS_CONFIG[:command].call("console.log('test')", "/tmp/test.js")
+
+      assert_equal "bun /tmp/test.js", command
+      assert_equal({}, options)
     end
-
-    command, options = JS_CONFIG[:command].call("console.log('test')", "/tmp/test.js")
-
-    assert_equal "bun /tmp/test.js", command
-    assert_equal({}, options)
-  ensure
-    # Restore original system method
-    Object.define_method(:system, original_system)
   end
 
   def test_js_config_falls_back_to_node_when_bun_unavailable
-    # Temporarily redefine system method to simulate bun not being available
-    original_system = Object.method(:system)
-    Object.define_method(:system) do |command|
-      if command == "command -v bun > /dev/null 2>&1"
-        false
-      else
-        original_system.call(command)
-      end
+    # Temporarily stub system method to simulate bun not being available
+    stub_system = ->(command) {
+      false  # bun not available, should fallback to node
+    }
+
+    TOPLEVEL_BINDING.eval('self').stub(:system, stub_system) do
+      command, options = JS_CONFIG[:command].call("console.log('test')", "/tmp/test.js")
+
+      assert_equal "node /tmp/test.js", command
+      assert_equal({}, options)
     end
-
-    command, options = JS_CONFIG[:command].call("console.log('test')", "/tmp/test.js")
-
-    assert_equal "node /tmp/test.js", command
-    assert_equal({}, options)
-  ensure
-    # Restore original system method
-    Object.define_method(:system, original_system)
   end
 
   def test_js_config_temp_file_suffix
@@ -78,262 +66,184 @@ class LanguageConfigsTest < Minitest::Test
 
   # PSQL Configuration Tests
   def test_psql_config_when_available
-    # Temporarily redefine system method to simulate psql being available
-    original_system = Object.method(:system)
-    Object.define_method(:system) do |command|
-      if command == "command -v psql > /dev/null 2>&1"
-        true
-      else
-        original_system.call(command)
-      end
+    # Temporarily stub system method to simulate psql being available
+    stub_system = ->(command) {
+      command == "command -v psql > /dev/null 2>&1"
+    }
+
+    TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
+      command, options = SUPPORTED_LANGUAGES["psql"][:command].call("SELECT 1;", nil)
+
+      assert_equal "psql -A -t -X", command
+      assert_equal({ stdin_data: "SELECT 1;" }, options)
     end
-
-    command, options = SUPPORTED_LANGUAGES["psql"][:command].call("SELECT 1;", nil)
-
-    assert_equal "psql -A -t -X", command
-    assert_equal({ stdin_data: "SELECT 1;" }, options)
-  ensure
-    # Restore original system method
-    Object.define_method(:system, original_system)
   end
 
   def test_psql_config_when_unavailable
-    # Temporarily redefine system method to simulate psql not being available
-    original_system = Object.method(:system)
-    Object.define_method(:system) do |command|
-      if command == "command -v psql > /dev/null 2>&1"
-        false
-      else
-        original_system.call(command)
+    # Temporarily stub system method to simulate psql not being available
+    stub_system = ->(command) {
+      false  # psql not available
+    }
+
+    TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
+      assert_raises(SystemExit) do
+        SUPPORTED_LANGUAGES["psql"][:command].call("SELECT 1;", nil)
       end
     end
-
-    assert_raises(SystemExit) do
-      SUPPORTED_LANGUAGES["psql"][:command].call("SELECT 1;", nil)
-    end
-  ensure
-    # Restore original system method
-    Object.define_method(:system, original_system)
   end
 
   def test_psql_config_with_explain
-    # Temporarily redefine system method to simulate psql being available
-    original_system = Object.method(:system)
-    Object.define_method(:system) do |command|
-      if command == "command -v psql > /dev/null 2>&1"
-        true
-      else
-        original_system.call(command)
-      end
+    # Temporarily stub system method to simulate psql being available
+    stub_system = ->(command) {
+      command == "command -v psql > /dev/null 2>&1"
+    }
+
+    TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
+      command, options = SUPPORTED_LANGUAGES["psql"][:command].call("SELECT 1;", nil, nil, true)
+
+      assert_equal "psql -A -t -X", command
+      assert_equal({ stdin_data: "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) SELECT 1;" }, options)
     end
-
-    command, options = SUPPORTED_LANGUAGES["psql"][:command].call("SELECT 1;", nil, nil, true)
-
-    assert_equal "psql -A -t -X", command
-    assert_equal({ stdin_data: "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) SELECT 1;" }, options)
-  ensure
-    # Restore original system method
-    Object.define_method(:system, original_system)
   end
 
   # Ruby Configuration Tests
   def test_ruby_config_when_available
-    # Temporarily redefine system method to simulate xmpfilter being available
-    original_system = Object.method(:system)
-    Object.define_method(:system) do |command|
-      if command == "command -v xmpfilter > /dev/null 2>&1"
-        true
-      else
-        original_system.call(command)
-      end
+    # Temporarily stub system method to simulate xmpfilter being available
+    stub_system = ->(command) {
+      command == "command -v xmpfilter > /dev/null 2>&1"
+    }
+
+    TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
+      command, options = SUPPORTED_LANGUAGES["ruby"][:command].call("puts 'test'", "/tmp/test.rb")
+
+      assert_equal "xmpfilter /tmp/test.rb", command
+      assert_equal({}, options)
     end
-
-    command, options = SUPPORTED_LANGUAGES["ruby"][:command].call("puts 'test'", "/tmp/test.rb")
-
-    assert_equal "xmpfilter /tmp/test.rb", command
-    assert_equal({}, options)
-  ensure
-    # Restore original system method
-    Object.define_method(:system, original_system)
   end
 
   def test_ruby_config_when_unavailable
-    # Temporarily redefine system method to simulate xmpfilter not being available
-    original_system = Object.method(:system)
-    Object.define_method(:system) do |command|
-      if command == "command -v xmpfilter > /dev/null 2>&1"
-        false
-      else
-        original_system.call(command)
+    # Temporarily stub system method to simulate xmpfilter not being available
+    stub_system = ->(command) {
+      false  # xmpfilter not available
+    }
+
+    TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
+      assert_raises(SystemExit) do
+        SUPPORTED_LANGUAGES["ruby"][:command].call("puts 'test'", "/tmp/test.rb")
       end
     end
-
-    assert_raises(SystemExit) do
-      SUPPORTED_LANGUAGES["ruby"][:command].call("puts 'test'", "/tmp/test.rb")
-    end
-  ensure
-    # Restore original system method
-    Object.define_method(:system, original_system)
   end
 
   # Bash Configuration Tests
   def test_bash_config_when_available
-    # Temporarily redefine system method to simulate bash being available
-    original_system = Object.method(:system)
-    Object.define_method(:system) do |command|
-      if command == "command -v bash > /dev/null 2>&1"
-        true
-      else
-        original_system.call(command)
-      end
+    # Temporarily stub system method to simulate bash being available
+    stub_system = ->(command) {
+      command == "command -v bash > /dev/null 2>&1"
+    }
+
+    TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
+      command, options = SUPPORTED_LANGUAGES["bash"][:command].call("echo 'test'", "/tmp/test.sh")
+
+      assert_equal "bash /tmp/test.sh", command
+      assert_equal({}, options)
     end
-
-    command, options = SUPPORTED_LANGUAGES["bash"][:command].call("echo 'test'", "/tmp/test.sh")
-
-    assert_equal "bash /tmp/test.sh", command
-    assert_equal({}, options)
-  ensure
-    # Restore original system method
-    Object.define_method(:system, original_system)
   end
 
   def test_bash_config_when_unavailable
-    # Temporarily redefine system method to simulate bash not being available
-    original_system = Object.method(:system)
-    Object.define_method(:system) do |command|
-      if command == "command -v bash > /dev/null 2>&1"
-        false
-      else
-        original_system.call(command)
+    # Temporarily stub system method to simulate bash not being available
+    stub_system = ->(command) {
+      false  # bash not available
+    }
+
+    TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
+      assert_raises(SystemExit) do
+        SUPPORTED_LANGUAGES["bash"][:command].call("echo 'test'", "/tmp/test.sh")
       end
     end
-
-    assert_raises(SystemExit) do
-      SUPPORTED_LANGUAGES["bash"][:command].call("echo 'test'", "/tmp/test.sh")
-    end
-  ensure
-    # Restore original system method
-    Object.define_method(:system, original_system)
   end
 
   # Zsh Configuration Tests
   def test_zsh_config_when_available
-    # Temporarily redefine system method to simulate zsh being available
-    original_system = Object.method(:system)
-    Object.define_method(:system) do |command|
-      if command == "command -v zsh > /dev/null 2>&1"
-        true
-      else
-        original_system.call(command)
-      end
+    # Temporarily stub system method to simulate zsh being available
+    stub_system = ->(command) {
+      command == "command -v zsh > /dev/null 2>&1"
+    }
+
+    TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
+      command, options = SUPPORTED_LANGUAGES["zsh"][:command].call("echo 'test'", "/tmp/test.zsh")
+
+      assert_equal "zsh /tmp/test.zsh", command
+      assert_equal({}, options)
     end
-
-    command, options = SUPPORTED_LANGUAGES["zsh"][:command].call("echo 'test'", "/tmp/test.zsh")
-
-    assert_equal "zsh /tmp/test.zsh", command
-    assert_equal({}, options)
-  ensure
-    # Restore original system method
-    Object.define_method(:system, original_system)
   end
 
   def test_zsh_config_when_unavailable
-    # Temporarily redefine system method to simulate zsh not being available
-    original_system = Object.method(:system)
-    Object.define_method(:system) do |command|
-      if command == "command -v zsh > /dev/null 2>&1"
-        false
-      else
-        original_system.call(command)
+    # Temporarily stub system method to simulate zsh not being available
+    stub_system = ->(command) {
+      false  # zsh not available
+    }
+
+    TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
+      assert_raises(SystemExit) do
+        SUPPORTED_LANGUAGES["zsh"][:command].call("echo 'test'", "/tmp/test.zsh")
       end
     end
-
-    assert_raises(SystemExit) do
-      SUPPORTED_LANGUAGES["zsh"][:command].call("echo 'test'", "/tmp/test.zsh")
-    end
-  ensure
-    # Restore original system method
-    Object.define_method(:system, original_system)
   end
 
   # Sh Configuration Tests
   def test_sh_config_when_available
-    # Temporarily redefine system method to simulate sh being available
-    original_system = Object.method(:system)
-    Object.define_method(:system) do |command|
-      if command == "command -v sh > /dev/null 2>&1"
-        true
-      else
-        original_system.call(command)
-      end
+    # Temporarily stub system method to simulate sh being available
+    stub_system = ->(command) {
+      command == "command -v sh > /dev/null 2>&1"
+    }
+
+    TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
+      command, options = SUPPORTED_LANGUAGES["sh"][:command].call("echo 'test'", "/tmp/test.sh")
+
+      assert_equal "sh /tmp/test.sh", command
+      assert_equal({}, options)
     end
-
-    command, options = SUPPORTED_LANGUAGES["sh"][:command].call("echo 'test'", "/tmp/test.sh")
-
-    assert_equal "sh /tmp/test.sh", command
-    assert_equal({}, options)
-  ensure
-    # Restore original system method
-    Object.define_method(:system, original_system)
   end
 
   def test_sh_config_when_unavailable
-    # Temporarily redefine system method to simulate sh not being available
-    original_system = Object.method(:system)
-    Object.define_method(:system) do |command|
-      if command == "command -v sh > /dev/null 2>&1"
-        false
-      else
-        original_system.call(command)
+    # Temporarily stub system method to simulate sh not being available
+    stub_system = ->(command) {
+      false  # sh not available
+    }
+
+    TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
+      assert_raises(SystemExit) do
+        SUPPORTED_LANGUAGES["sh"][:command].call("echo 'test'", "/tmp/test.sh")
       end
     end
-
-    assert_raises(SystemExit) do
-      SUPPORTED_LANGUAGES["sh"][:command].call("echo 'test'", "/tmp/test.sh")
-    end
-  ensure
-    # Restore original system method
-    Object.define_method(:system, original_system)
   end
 
   # Mermaid Configuration Tests
   def test_mermaid_config_when_available
-    # Temporarily redefine system method to simulate mmdc being available
-    original_system = Object.method(:system)
-    Object.define_method(:system) do |command|
-      if command == "command -v mmdc > /dev/null 2>&1"
-        true
-      else
-        original_system.call(command)
-      end
+    # Temporarily stub system method to simulate mmdc being available
+    stub_system = ->(command) {
+      command == "command -v mmdc > /dev/null 2>&1"
+    }
+
+    TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
+      command, options = SUPPORTED_LANGUAGES["mermaid"][:command].call("graph TD; A-->B", "/tmp/test.mmd")
+
+      assert_includes command, "mmdc -i /tmp/test.mmd -o"
+      assert_includes options.keys, :output_path
     end
-
-    command, options = SUPPORTED_LANGUAGES["mermaid"][:command].call("graph TD; A-->B", "/tmp/test.mmd")
-
-    assert_includes command, "mmdc -i /tmp/test.mmd -o"
-    assert_includes options.keys, :output_path
-  ensure
-    # Restore original system method
-    Object.define_method(:system, original_system)
   end
 
   def test_mermaid_config_when_unavailable
-    # Temporarily redefine system method to simulate mmdc not being available
-    original_system = Object.method(:system)
-    Object.define_method(:system) do |command|
-      if command == "command -v mmdc > /dev/null 2>&1"
-        false
-      else
-        original_system.call(command)
+    # Temporarily stub system method to simulate mmdc not being available
+    stub_system = ->(command) {
+      false  # mmdc not available
+    }
+
+    TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
+      assert_raises(SystemExit) do
+        SUPPORTED_LANGUAGES["mermaid"][:command].call("graph TD; A-->B", "/tmp/test.mmd")
       end
     end
-
-    assert_raises(SystemExit) do
-      SUPPORTED_LANGUAGES["mermaid"][:command].call("graph TD; A-->B", "/tmp/test.mmd")
-    end
-  ensure
-    # Restore original system method
-    Object.define_method(:system, original_system)
   end
 
   # Test configuration properties for all languages

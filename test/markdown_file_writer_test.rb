@@ -97,51 +97,42 @@ class MarkdownFileWriterTest < Minitest::Test
   end
 
   def test_write_output_to_file_fallback_copy_and_delete_mechanism
-    original_mv = FileUtils.method(:mv)
-    original_cp = FileUtils.method(:cp)
-    original_rm_f = FileUtils.method(:rm_f)
-
     mv_called = false
     cp_called = false
     rm_f_called = false
-    temp_path_for_cleanup = nil
 
-    # Mock FileUtils methods to track calls and simulate exception
-    FileUtils.define_singleton_method(:mv) do |src, dest|
+    # Store original methods for fallback calls
+    original_cp = FileUtils.method(:cp)
+    original_rm_f = FileUtils.method(:rm_f)
+
+    # Mock FileUtils.mv to raise exception, cp and rm_f to track calls
+    FileUtils.stub(:mv, ->(_src, _dest) {
       mv_called = true
-      temp_path_for_cleanup = src
       raise Errno::EACCES.new("Permission denied")
-    end
+    }) do
+      FileUtils.stub(:cp, ->(src, dest) {
+        cp_called = true
+        original_cp.call(src, dest)
+      }) do
+        FileUtils.stub(:rm_f, ->(path) {
+          rm_f_called = true
+          original_rm_f.call(path)
+        }) do
+          # Capture the warning to suppress it in test output
+          capture_io do
+            result = MarkdownFileWriter.write_output_to_file(@output_lines, @input_file)
+            assert_equal true, result
+          end
 
-    FileUtils.define_singleton_method(:cp) do |src, dest|
-      cp_called = true
-      original_cp.call(src, dest)
-    end
+          # Verify all the expected method calls happened
+          assert mv_called, "FileUtils.mv should have been called"
+          assert cp_called, "FileUtils.cp should have been called as fallback"
+          assert rm_f_called, "FileUtils.rm_f should have been called to clean up temp file"
 
-    FileUtils.define_singleton_method(:rm_f) do |path|
-      rm_f_called = true
-      original_rm_f.call(path)
-    end
-
-    begin
-      # Capture the warning to suppress it in test output
-      capture_io do
-        result = MarkdownFileWriter.write_output_to_file(@output_lines, @input_file)
-        assert_equal true, result
+          # Verify the content was written correctly
+          assert_equal "# Test\nSome content\nMore content\n", File.read(@input_file)
+        end
       end
-
-      # Verify all the expected method calls happened
-      assert mv_called, "FileUtils.mv should have been called"
-      assert cp_called, "FileUtils.cp should have been called as fallback"
-      assert rm_f_called, "FileUtils.rm_f should have been called to clean up temp file"
-
-      # Verify the content was written correctly
-      assert_equal "# Test\nSome content\nMore content\n", File.read(@input_file)
-    ensure
-      # Restore original methods
-      FileUtils.define_singleton_method(:mv, original_mv)
-      FileUtils.define_singleton_method(:cp, original_cp)
-      FileUtils.define_singleton_method(:rm_f, original_rm_f)
     end
   end
 
@@ -197,21 +188,17 @@ class MarkdownFileWriterTest < Minitest::Test
     File.write(target_file, "original")
 
     # Monitor temp file creation
-    original_create = Tempfile.method(:create)
     temp_dir_used = nil
+    original_create = Tempfile.method(:create)
 
-    Tempfile.define_singleton_method(:create) do |prefix_suffix, tmpdir = nil|
+    stub_create = ->(prefix_suffix, tmpdir = nil, &block) {
       temp_dir_used = tmpdir
-      original_create.call(prefix_suffix, tmpdir) do |file|
-        yield file if block_given?
-      end
-    end
+      original_create.call(prefix_suffix, tmpdir, &block)
+    }
 
-    begin
+    Tempfile.stub(:create, stub_create) do
       MarkdownFileWriter.write_output_to_file(@output_lines, target_file)
       assert_equal subdirectory, temp_dir_used
-    ensure
-      Tempfile.define_singleton_method(:create, original_create)
     end
   end
 end
