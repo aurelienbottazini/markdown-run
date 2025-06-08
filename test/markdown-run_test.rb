@@ -46,30 +46,13 @@ class TestMarkdownRun < Minitest::Test
     end
   end
 
-  def run_static_fixture_tests(fixture_prefix)
-    run_fixture_tests(fixture_prefix)
-  end
-
   def test_script_runs_without_error_on_empty_file
     create_md_file("")
     assert MarkdownRun.run_code_blocks(@test_md_file_path), "Processing empty file should succeed"
     assert_equal "", read_md_file.strip, "Empty file should remain empty after processing"
   end
 
-  def test_ruby_block_execution_and_result_generation
-    run_fixture_tests("ruby_block_execution")
-  end
-
-  def test_skip_execution_if_ruby_result_block_exists
-    run_fixture_tests("skip_execution_existing_result")
-  end
-
   def test_rerun_functionality
-    # Use fixture tests for static test cases (default behavior and rerun=false)
-    run_static_fixture_tests("rerun_default")
-    run_static_fixture_tests("rerun_false")
-
-    # Test 3: rerun=true should replace existing result (dynamic content with timestamps)
     md_content_rerun_true = <<~MARKDOWN
       ```ruby rerun=true
       puts "Should change: \#{Time.now.to_i}"
@@ -132,11 +115,6 @@ class TestMarkdownRun < Minitest::Test
     assert_equal expected_output, file_content.strip
   end
 
-  def test_run_functionality
-    # Use fixture tests for static test cases
-    run_static_fixture_tests("run_")
-  end
-
   def test_mermaid_block_execution
     skip "Skipping test_mermaid_block_execution if mmdc not available" unless system("command -v mmdc > /dev/null 2>&1")
 
@@ -169,7 +147,6 @@ class TestMarkdownRun < Minitest::Test
   end
 
   def test_standalone_option_syntax
-    # Test 1: standalone rerun should work like rerun=true (dynamic content with timestamps)
     md_content_standalone_rerun = <<~MARKDOWN
       ```ruby rerun
       puts "Standalone rerun test: \#{Time.now.to_i}"
@@ -200,12 +177,6 @@ class TestMarkdownRun < Minitest::Test
       ```
     MARKDOWN
     assert_equal expected_output, file_content.strip
-
-    # Test 2: Use fixture test for standalone run
-    run_static_fixture_tests("standalone_run")
-
-    # Test 3: Use fixture test for explicit option override
-    run_static_fixture_tests("standalone_rerun_override")
   end
 
   def test_fixtures
