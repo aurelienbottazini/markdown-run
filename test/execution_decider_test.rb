@@ -4,6 +4,7 @@ require_relative '../lib/enum_helper'
 
 # --- Minitest Test Class Definition ---
 class TestExecutionDecider < Minitest::Test
+  include MarkdownTestHelper
 
   def test_execution_decider_dalibo_detection
     # Test the ExecutionDecider's ability to detect Dalibo links

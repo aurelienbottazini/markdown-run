@@ -2,24 +2,11 @@ require_relative 'test_helper'
 
 # --- PSQL-specific Tests ---
 class TestPsql < Minitest::Test
+  include MarkdownTestHelper
+
   def setup
     skip "Skipping all psql tests on GitHub CI" if ENV['CI']
-
-    @temp_dir = Dir.mktmpdir("markdown_exec_tests")
-    @test_md_file_path = File.join(@temp_dir, "test.md")
-  end
-
-  def teardown
-    FileUtils.remove_entry @temp_dir if @temp_dir && Dir.exist?(@temp_dir)
-  end
-
-  def create_md_file(content)
-    File.write(@test_md_file_path, content)
-    @test_md_file_path
-  end
-
-  def read_md_file
-    File.read(@test_md_file_path)
+    super
   end
 
   def test_explain_option_syntax

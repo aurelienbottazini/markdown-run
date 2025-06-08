@@ -2,23 +2,7 @@ require_relative 'test_helper'
 
 # --- Frontmatter Test Class Definition ---
 class TestFrontmatter < Minitest::Test
-  def setup
-    @temp_dir = Dir.mktmpdir("markdown_exec_tests")
-    @test_md_file_path = File.join(@temp_dir, "test.md")
-  end
-
-  def teardown
-    FileUtils.remove_entry @temp_dir if @temp_dir && Dir.exist?(@temp_dir)
-  end
-
-  def create_md_file(content)
-    File.write(@test_md_file_path, content)
-    @test_md_file_path
-  end
-
-  def read_md_file
-    File.read(@test_md_file_path)
-  end
+  include MarkdownTestHelper
 
   def test_frontmatter_dynamic_timestamps
     # Test global defaults - rerun only (without result=false to see the output)
