@@ -515,10 +515,4 @@ class TestMarkdownRun < Minitest::Test
     MARKDOWN
     assert_equal expected_output, File.read(test_file_4).strip
   end
-
-
-
-
-
-
 end
