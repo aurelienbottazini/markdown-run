@@ -1,7 +1,9 @@
 require "tempfile"
 require "fileutils"
+require_relative "test_silencer"
 
 class MarkdownFileWriter
+
   def self.write_output_to_file(output_lines, input_file_path)
     temp_dir = File.dirname(File.expand_path(input_file_path))
 
@@ -19,7 +21,8 @@ class MarkdownFileWriter
       end
     end
 
-    warn "Markdown processing complete. Output written to #{input_file_path}"
+    # Only show the warning message if we're not running tests
+    TestSilencer.warn_unless_testing("Markdown processing complete. Output written to #{input_file_path}")
     true # Indicate success
   end
 end

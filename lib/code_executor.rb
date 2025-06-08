@@ -1,6 +1,7 @@
 require "tempfile"
 require "open3"
 require_relative "language_configs"
+require_relative "test_silencer"
 
 class CodeExecutor
   def self.execute(code_content, lang, temp_dir, input_file_path = nil, explain = false, flamegraph = false)
@@ -13,7 +14,7 @@ class CodeExecutor
 
     return handle_unsupported_language(lang) unless lang_config
 
-    warn "Executing #{lang_key} code block..."
+    TestSilencer.warn_unless_testing("Executing #{lang_key} code block...")
 
     result = execute_with_config(code_content, lang_config, temp_dir, lang_key, input_file_path, explain, flamegraph)
     process_execution_result(result, lang_config, lang_key, explain, flamegraph)
@@ -143,7 +144,7 @@ class CodeExecutor
       relative_path = svg_filename
     end
 
-    warn "Generated Mermaid SVG: #{relative_path}"
+    TestSilencer.warn_unless_testing("Generated Mermaid SVG: #{relative_path}")
 
     # Return markdown image tag instead of typical result content
     "![Mermaid Diagram](#{relative_path})"
@@ -225,7 +226,7 @@ class CodeExecutor
         relative_path = File.basename(output_path)
       end
 
-      warn "Generated PostgreSQL flamegraph: #{relative_path}"
+      TestSilencer.warn_unless_testing("Generated PostgreSQL flamegraph: #{relative_path}")
 
       # Return a special format that the markdown processor can parse
       # Preserve any existing Dalibo link prefix

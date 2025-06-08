@@ -1,4 +1,5 @@
 require_relative "flamegraph_helper"
+require_relative "test_silencer"
 
 module ResultHelper
   include FlamegraphHelper
@@ -55,14 +56,14 @@ module ResultHelper
   end
 
   def handle_existing_ruby_result_block(current_line, file_enum)
-    warn "Found existing '```ruby RESULT' block, passing through."
+    TestSilencer.warn_unless_testing("Found existing '```ruby RESULT' block, passing through.")
     @output_lines << current_line
     @state = :inside_result_block
   end
 
 
   def execute_and_add_result(blank_line_before_new_result)
-      warn "Skipping empty code block for language '#{@current_block_lang}'." && return unless has_content?(@current_code_content)
+      TestSilencer.warn_unless_testing("Skipping empty code block for language '#{@current_block_lang}'.") && return unless has_content?(@current_code_content)
 
     @output_lines << blank_line_before_new_result if blank_line_before_new_result
 
@@ -103,13 +104,13 @@ module ResultHelper
   def skip_and_pass_through_result(lines_to_pass_through, file_enum, decision = nil)
     # Handle run=false case where there are no lines to pass through
     if lines_to_pass_through.empty?
-      warn "Skipping execution due to run=false option."
+      TestSilencer.warn_unless_testing("Skipping execution due to run=false option.")
       return
     end
 
     # Check if this is Dalibo content
     if decision && decision[:dalibo_content]
-      warn "Found existing Dalibo link for current #{@current_block_lang} block, skipping execution."
+      TestSilencer.warn_unless_testing("Found existing Dalibo link for current #{@current_block_lang} block, skipping execution.")
       @output_lines.concat(lines_to_pass_through)
       # No additional consumption needed for Dalibo links
       return
@@ -117,19 +118,19 @@ module ResultHelper
 
     # Check if this is flamegraph content
     if decision && decision[:flamegraph_content]
-      warn "Found existing flamegraph for current #{@current_block_lang} block, skipping execution."
+      TestSilencer.warn_unless_testing("Found existing flamegraph for current #{@current_block_lang} block, skipping execution.")
       @output_lines.concat(lines_to_pass_through)
       # No additional consumption needed for flamegraph links
       return
     end
 
     if mermaid_style_result?(@current_block_lang)
-      warn "Found existing mermaid SVG image for current #{@current_block_lang} block, skipping execution."
+      TestSilencer.warn_unless_testing("Found existing mermaid SVG image for current #{@current_block_lang} block, skipping execution.")
       @output_lines.concat(lines_to_pass_through)
       # For mermaid, no additional consumption needed since it's just an image line
     else
       lang_specific_result_type = ruby_style_result?(@current_block_lang) ? "```ruby RESULT" : "```RESULT"
-      warn "Found existing '#{lang_specific_result_type}' block for current #{@current_block_lang} block, skipping execution."
+      TestSilencer.warn_unless_testing("Found existing '#{lang_specific_result_type}' block for current #{@current_block_lang} block, skipping execution.")
       @output_lines.concat(lines_to_pass_through)
       consume_result_block_content(file_enum)
     end
