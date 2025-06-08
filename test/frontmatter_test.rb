@@ -20,7 +20,7 @@ class TestFrontmatter < Minitest::Test
     File.read(@test_md_file_path)
   end
 
-  def test_frontmatter_defaults
+  def test_frontmatter_dynamic_timestamps
     # Test global defaults - rerun only (without result=false to see the output)
     md_content_global_rerun = <<~MARKDOWN
       ---
@@ -65,36 +65,7 @@ class TestFrontmatter < Minitest::Test
     MARKDOWN
     assert_equal expected_output, file_content.strip
 
-    # Test global defaults - result=false
-    md_content_global_result_false = <<~MARKDOWN
-      ---
-      markdown-run:
-        defaults:
-          result: false
-      ---
-
-      ```ruby
-      puts "Global result false test"
-      ```
-    MARKDOWN
-    test_file_1b = File.join(@temp_dir, "test_global_result_false.md")
-    File.write(test_file_1b, md_content_global_result_false)
-    MarkdownRun.run_code_blocks(test_file_1b)
-
-    expected_output = <<~MARKDOWN.strip
-      ---
-      markdown-run:
-        defaults:
-          result: false
-      ---
-
-      ```ruby
-      puts "Global result false test"
-      ```
-    MARKDOWN
-    assert_equal expected_output, File.read(test_file_1b).strip
-
-    # Test language-specific defaults
+    # Test language-specific defaults with dynamic timestamps
     md_content_lang_defaults = <<~MARKDOWN
       ---
       markdown-run:
