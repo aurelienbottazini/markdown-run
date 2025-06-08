@@ -20,6 +20,32 @@ class TestMarkdownRun < Minitest::Test
     File.read(@test_md_file_path)
   end
 
+  def run_fixture_tests(fixture_prefix = nil)
+    fixtures_dir = File.join(__dir__, "fixtures")
+
+    # Discover all .input.md files and extract test case names
+    pattern = fixture_prefix ? "#{fixture_prefix}*.input.md" : "*.input.md"
+    input_files = Dir.glob(File.join(fixtures_dir, pattern))
+    test_cases = input_files.map { |file| File.basename(file, ".input.md") }
+
+    test_cases.each do |test_case|
+      input_file = File.join(fixtures_dir, "#{test_case}.input.md")
+      expected_file = File.join(fixtures_dir, "#{test_case}.expected.md")
+
+      # Skip if expected file doesn't exist
+      next unless File.exist?(expected_file)
+
+      input_content = File.read(input_file)
+      expected_content = File.read(expected_file).strip
+
+      test_file = File.join(@temp_dir, "#{test_case}.md")
+      File.write(test_file, input_content)
+      MarkdownRun.run_code_blocks(test_file)
+
+      assert_equal expected_content, File.read(test_file).strip
+    end
+  end
+
   def test_script_runs_without_error_on_empty_file
     create_md_file("")
     assert MarkdownRun.run_code_blocks(@test_md_file_path), "Processing empty file should succeed"
@@ -423,23 +449,7 @@ class TestMarkdownRun < Minitest::Test
     assert_equal expected_output, File.read(test_file_3).strip
   end
 
-  def test_result_option
-    test_cases = [
-      "md_content_result_false",
-      "md_content_result_true",
-      "md_content_result_default",
-      "md_content_result_standalone"
-    ]
-
-    test_cases.each do |test_case|
-      input_content = File.read(File.join(__dir__, "fixtures", "#{test_case}.input.md"))
-      expected_content = File.read(File.join(__dir__, "fixtures", "#{test_case}.expected.md")).strip
-
-      test_file = File.join(@temp_dir, "#{test_case}.md")
-      File.write(test_file, input_content)
-      MarkdownRun.run_code_blocks(test_file)
-
-      assert_equal expected_content, File.read(test_file).strip
-    end
+  def test_fixtures
+    run_fixture_tests
   end
 end
