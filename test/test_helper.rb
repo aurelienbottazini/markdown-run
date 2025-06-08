@@ -1,11 +1,12 @@
-require 'simplecov'
+if ENV['COVERAGE'] == 'true'
+  require 'simplecov'
 
-# Start SimpleCov before requiring any of your application code
-SimpleCov.start do
-  # Add filters to exclude certain files/directories from coverage
-  add_filter '/test/'
-  add_filter '/vendor/'
-
+  # Start SimpleCov before requiring any of your application code
+  SimpleCov.start do
+    # Add filters to exclude certain files/directories from coverage
+    add_filter '/test/'
+    add_filter '/vendor/'
+  end
 end
 
 require 'minitest/autorun'
