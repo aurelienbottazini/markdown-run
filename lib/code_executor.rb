@@ -47,7 +47,13 @@ class CodeExecutor
     Tempfile.create([lang_key, temp_file_suffix], temp_dir) do |temp_file|
       temp_file.write(code_content)
       temp_file.close
-      command_to_run, exec_options = cmd_lambda.call(code_content, temp_file.path, input_file_path, explain, flamegraph)
+      command_to_run, exec_options = cmd_lambda.call(**{
+        code_content: code_content,
+        temp_file_path: temp_file.path,
+        input_file_path: input_file_path,
+        explain: explain,
+        flamegraph: flamegraph
+      })
 
       # Extract output_path if present (for mermaid)
       output_path = exec_options.delete(:output_path) if exec_options.is_a?(Hash)
@@ -65,7 +71,13 @@ class CodeExecutor
   end
 
   def execute_direct_command(code_content, cmd_lambda, input_file_path = nil, explain = false, flamegraph = false)
-    command_to_run, exec_options = cmd_lambda.call(code_content, nil, input_file_path, explain, flamegraph)
+    command_to_run, exec_options = cmd_lambda.call(**{
+      code_content: code_content,
+      temp_file_path: nil,
+      input_file_path: input_file_path,
+      explain: explain,
+      flamegraph: flamegraph
+    })
     captured_stdout, captured_stderr, captured_status_obj = Open3.capture3(command_to_run, **exec_options)
     { stdout: captured_stdout, stderr: captured_stderr, status: captured_status_obj, input_file_path: input_file_path }
   end

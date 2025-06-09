@@ -2,23 +2,23 @@ require_relative 'test_helper'
 require_relative '../lib/language_configs'
 
 class LanguageConfigsTest < Minitest::Test
-        def test_js_config_command_returns_correct_format
+  def test_js_config_command_returns_correct_format
     # Test that the command lambda returns the expected format
-    command, options = JS_CONFIG[:command].call("console.log('test')", "/tmp/test.js")
+    command, options = JS_CONFIG[:command].call(**{ code_content: "console.log('test')", temp_file_path: "/tmp/test.js" })
 
     # Should return either bun or node command
     assert_includes ["bun /tmp/test.js", "node /tmp/test.js"], command
     assert_equal({}, options)
   end
 
-    def test_js_config_uses_bun_when_available
+  def test_js_config_uses_bun_when_available
     # Temporarily stub system method to simulate bun being available
     stub_system = ->(command) {
       command == "command -v bun > /dev/null 2>&1"
     }
 
     TOPLEVEL_BINDING.eval('self').stub(:system, stub_system) do
-      command, options = JS_CONFIG[:command].call("console.log('test')", "/tmp/test.js")
+      command, options = JS_CONFIG[:command].call(**{ code_content: "console.log('test')", temp_file_path: "/tmp/test.js" })
 
       assert_equal "bun /tmp/test.js", command
       assert_equal({}, options)
@@ -32,7 +32,7 @@ class LanguageConfigsTest < Minitest::Test
     }
 
     TOPLEVEL_BINDING.eval('self').stub(:system, stub_system) do
-      command, options = JS_CONFIG[:command].call("console.log('test')", "/tmp/test.js")
+      command, options = JS_CONFIG[:command].call(**{ code_content: "console.log('test')", temp_file_path: "/tmp/test.js" })
 
       assert_equal "node /tmp/test.js", command
       assert_equal({}, options)
@@ -72,7 +72,7 @@ class LanguageConfigsTest < Minitest::Test
     }
 
     TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
-      command, options = SUPPORTED_LANGUAGES["psql"][:command].call("SELECT 1;", nil)
+      command, options = SUPPORTED_LANGUAGES["psql"][:command].call(**{ code_content: "SELECT 1;" })
 
       assert_equal "psql -A -t -X", command
       assert_equal({ stdin_data: "SELECT 1;" }, options)
@@ -87,7 +87,7 @@ class LanguageConfigsTest < Minitest::Test
 
     TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
       assert_raises(SystemExit) do
-        SUPPORTED_LANGUAGES["psql"][:command].call("SELECT 1;", nil)
+        SUPPORTED_LANGUAGES["psql"][:command].call(**{ code_content: "SELECT 1;" })
       end
     end
   end
@@ -99,7 +99,7 @@ class LanguageConfigsTest < Minitest::Test
     }
 
     TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
-      command, options = SUPPORTED_LANGUAGES["psql"][:command].call("SELECT 1;", nil, nil, true)
+      command, options = SUPPORTED_LANGUAGES["psql"][:command].call(**{ code_content: "SELECT 1;", explain: true })
 
       assert_equal "psql -A -t -X", command
       assert_equal({ stdin_data: "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) SELECT 1;" }, options)
@@ -114,7 +114,7 @@ class LanguageConfigsTest < Minitest::Test
     }
 
     TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
-      command, options = SUPPORTED_LANGUAGES["ruby"][:command].call("puts 'test'", "/tmp/test.rb")
+      command, options = SUPPORTED_LANGUAGES["ruby"][:command].call(**{ temp_file_path: "/tmp/test.rb" })
 
       assert_equal "xmpfilter /tmp/test.rb", command
       assert_equal({}, options)
@@ -129,7 +129,7 @@ class LanguageConfigsTest < Minitest::Test
 
     TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
       assert_raises(SystemExit) do
-        SUPPORTED_LANGUAGES["ruby"][:command].call("puts 'test'", "/tmp/test.rb")
+        SUPPORTED_LANGUAGES["ruby"][:command].call(**{ temp_file_path: "/tmp/test.rb" })
       end
     end
   end
@@ -142,7 +142,7 @@ class LanguageConfigsTest < Minitest::Test
     }
 
     TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
-      command, options = SUPPORTED_LANGUAGES["bash"][:command].call("echo 'test'", "/tmp/test.sh")
+      command, options = SUPPORTED_LANGUAGES["bash"][:command].call(**{ temp_file_path: "/tmp/test.sh" })
 
       assert_equal "bash /tmp/test.sh", command
       assert_equal({}, options)
@@ -157,7 +157,7 @@ class LanguageConfigsTest < Minitest::Test
 
     TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
       assert_raises(SystemExit) do
-        SUPPORTED_LANGUAGES["bash"][:command].call("echo 'test'", "/tmp/test.sh")
+        SUPPORTED_LANGUAGES["bash"][:command].call(**{ temp_file_path: "/tmp/test.sh" })
       end
     end
   end
@@ -170,7 +170,7 @@ class LanguageConfigsTest < Minitest::Test
     }
 
     TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
-      command, options = SUPPORTED_LANGUAGES["zsh"][:command].call("echo 'test'", "/tmp/test.zsh")
+      command, options = SUPPORTED_LANGUAGES["zsh"][:command].call(**{ temp_file_path: "/tmp/test.zsh" })
 
       assert_equal "zsh /tmp/test.zsh", command
       assert_equal({}, options)
@@ -185,7 +185,7 @@ class LanguageConfigsTest < Minitest::Test
 
     TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
       assert_raises(SystemExit) do
-        SUPPORTED_LANGUAGES["zsh"][:command].call("echo 'test'", "/tmp/test.zsh")
+        SUPPORTED_LANGUAGES["zsh"][:command].call(**{ temp_file_path: "/tmp/test.zsh" })
       end
     end
   end
@@ -198,7 +198,7 @@ class LanguageConfigsTest < Minitest::Test
     }
 
     TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
-      command, options = SUPPORTED_LANGUAGES["sh"][:command].call("echo 'test'", "/tmp/test.sh")
+      command, options = SUPPORTED_LANGUAGES["sh"][:command].call(**{ temp_file_path: "/tmp/test.sh" })
 
       assert_equal "sh /tmp/test.sh", command
       assert_equal({}, options)
@@ -213,7 +213,7 @@ class LanguageConfigsTest < Minitest::Test
 
     TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
       assert_raises(SystemExit) do
-        SUPPORTED_LANGUAGES["sh"][:command].call("echo 'test'", "/tmp/test.sh")
+        SUPPORTED_LANGUAGES["sh"][:command].call(**{ temp_file_path: "/tmp/test.sh" })
       end
     end
   end
@@ -226,10 +226,10 @@ class LanguageConfigsTest < Minitest::Test
     }
 
     TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
-      command, options = SUPPORTED_LANGUAGES["mermaid"][:command].call("graph TD; A-->B", "/tmp/test.mmd")
+      command, options = SUPPORTED_LANGUAGES["mermaid"][:command].call(**{ code_content: "graph TD; A-->B", temp_file_path: "/tmp/test.mmd" })
 
-      assert_includes command, "mmdc -i /tmp/test.mmd -o"
-      assert_includes options.keys, :output_path
+      assert_equal "mmdc -i /tmp/test.mmd -o /tmp/test.svg", command
+      assert_equal({ output_path: "/tmp/test.svg" }, options)
     end
   end
 
@@ -241,24 +241,21 @@ class LanguageConfigsTest < Minitest::Test
 
     TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
       assert_raises(SystemExit) do
-        SUPPORTED_LANGUAGES["mermaid"][:command].call("graph TD; A-->B", "/tmp/test.mmd")
+        SUPPORTED_LANGUAGES["mermaid"][:command].call(**{ code_content: "graph TD; A-->B", temp_file_path: "/tmp/test.mmd" })
       end
     end
   end
 
-  # Test configuration properties for all languages
   def test_all_supported_languages_have_command
     SUPPORTED_LANGUAGES.each do |lang, config|
-      assert config.key?(:command), "Language #{lang} missing :command"
-      assert config[:command].respond_to?(:call), "Language #{lang} command is not callable"
+      assert_respond_to config[:command], :call, "Language #{lang} should have a callable command"
     end
   end
 
   def test_sqlite_config_properties
     assert_equal ".db", SQLITE_CONFIG[:temp_file_suffix]
-    assert SQLITE_CONFIG[:command].respond_to?(:call)
 
-    command, options = SQLITE_CONFIG[:command].call("SELECT 1;", "/tmp/test.db")
+    command, options = SQLITE_CONFIG[:command].call(**{ code_content: "SELECT 1;", temp_file_path: "/tmp/test.db" })
     assert_equal "sqlite3 /tmp/test.db", command
     assert_equal({ stdin_data: "SELECT 1;" }, options)
   end

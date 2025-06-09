@@ -2,7 +2,7 @@ require 'securerandom'
 require_relative 'test_silencer'
 
 JS_CONFIG = {
-  command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
+  command: proc { |temp_file_path: nil, **|
     # Check if bun is available
     bun_exists = system("command -v bun > /dev/null 2>&1")
     if bun_exists
@@ -17,13 +17,13 @@ JS_CONFIG = {
 }.freeze
 
 SQLITE_CONFIG = {
-  command: ->(code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) { [ "sqlite3 #{temp_file_path}", { stdin_data: code_content } ] },
+  command: proc { |code_content: nil, temp_file_path: nil, **| [ "sqlite3 #{temp_file_path}", { stdin_data: code_content } ] },
   temp_file_suffix: ".db" # Temp file is the database
 }.freeze
 
 SUPPORTED_LANGUAGES = {
   "psql" => {
-    command: ->(code_content, _temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
+    command: proc { |code_content: nil, explain: false, flamegraph: false, **|
       psql_exists = system("command -v psql > /dev/null 2>&1")
       unless psql_exists
         TestSilencer.abort_unless_testing "Error: psql command not found. Please install PostgreSQL or ensure psql is in your PATH."
@@ -42,7 +42,7 @@ SUPPORTED_LANGUAGES = {
     }
   },
   "ruby" => {
-    command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
+    command: proc { |temp_file_path: nil, **|
       xmpfilter_exists = system("command -v xmpfilter > /dev/null 2>&1")
       unless xmpfilter_exists
         TestSilencer.abort_unless_testing "Error: xmpfilter command not found. Please install xmpfilter or ensure it is in your PATH."
@@ -58,7 +58,7 @@ SUPPORTED_LANGUAGES = {
   "sqlite" => SQLITE_CONFIG,
   "sqlite3" => SQLITE_CONFIG, # Alias for sqlite
   "bash" => {
-    command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
+    command: proc { |temp_file_path: nil, **|
       bash_exists = system("command -v bash > /dev/null 2>&1")
       unless bash_exists
         TestSilencer.abort_unless_testing "Error: bash command not found. Please ensure bash is in your PATH."
@@ -68,7 +68,7 @@ SUPPORTED_LANGUAGES = {
     temp_file_suffix: ".sh"
   },
   "zsh" => {
-    command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
+    command: proc { |temp_file_path: nil, **|
       zsh_exists = system("command -v zsh > /dev/null 2>&1")
       unless zsh_exists
         TestSilencer.abort_unless_testing "Error: zsh command not found. Please ensure zsh is in your PATH."
@@ -78,7 +78,7 @@ SUPPORTED_LANGUAGES = {
     temp_file_suffix: ".zsh"
   },
   "sh" => {
-    command: ->(_code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
+    command: proc { |temp_file_path: nil, **|
       sh_exists = system("command -v sh > /dev/null 2>&1")
       unless sh_exists
         TestSilencer.abort_unless_testing "Error: sh command not found. Please ensure sh is in your PATH."
@@ -88,7 +88,7 @@ SUPPORTED_LANGUAGES = {
     temp_file_suffix: ".sh"
   },
   "mermaid" => {
-    command: ->(code_content, temp_file_path, input_file_path = nil, explain = false, flamegraph = false) {
+    command: proc { |temp_file_path: nil, input_file_path: nil, **|
       mmdc_exists = system("command -v mmdc > /dev/null 2>&1")
       unless mmdc_exists
         TestSilencer.abort_unless_testing "Error: mmdc command not found. Please install @mermaid-js/mermaid-cli: npm install -g @mermaid-js/mermaid-cli"
