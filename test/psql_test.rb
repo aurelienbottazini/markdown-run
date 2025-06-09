@@ -4,11 +4,6 @@ require_relative 'test_helper'
 class TestPsql < Minitest::Test
   include MarkdownTestHelper
 
-  def setup
-    skip "Skipping all psql tests on GitHub CI" if ENV['CI']
-    super
-  end
-
   def test_explain_option_syntax
     # Test explain option parsing for psql
     skip("PostgreSQL not available") unless system("command -v psql > /dev/null 2>&1")
