@@ -6,8 +6,6 @@ markdown-run:
 
 ```ruby
 puts "Global rerun test: #{Time.now.to_i}"
+# >> Global rerun test: 12345678
 ```
 
-```ruby RESULT
-Global rerun test: 12345678
-```

@@ -31,8 +31,14 @@ module ResultHelper
     end
   end
 
-  def add_result_block(result_output, blank_line_before_new_result)
-    if mermaid_style_result?(@current_block_lang)
+  def add_result_block(result_output, blank_line_before_new_result, closing_line = nil)
+    if ruby_style_result?(@current_block_lang)
+      # For ruby, replace the code block content with xmpfilter output
+      @output_lines << result_output
+      @output_lines << "\n" unless result_output.empty? || result_output.end_with?("\n")
+      @output_lines << (closing_line || "```\n")
+      @output_lines << "\n"
+    elsif mermaid_style_result?(@current_block_lang)
       # For mermaid, add the image tag directly without a result block
       @output_lines << "\n" if blank_line_before_new_result.nil?
       @output_lines << result_output
@@ -62,10 +68,11 @@ module ResultHelper
   end
 
 
-  def execute_and_add_result(blank_line_before_new_result)
+  def execute_and_add_result(blank_line_before_new_result, closing_line = nil)
       TestSilencer.warn_unless_testing("Skipping empty code block for language '#{@current_block_lang}'.") && return unless has_content?(@current_code_content)
 
-    @output_lines << blank_line_before_new_result if blank_line_before_new_result
+    # For ruby blocks, don't add blank line since we're replacing the code block inline, not adding a RESULT block
+    @output_lines << blank_line_before_new_result if blank_line_before_new_result && !ruby_style_result?(@current_block_lang)
 
     result_output = CodeExecutor.execute(@current_code_content, @current_block_lang, @temp_dir, @input_file_path, @current_block_explain, @current_block_flamegraph)
 
@@ -77,7 +84,12 @@ module ResultHelper
 
     # Add the result block only if result=true (default)
     if @current_block_result
-      add_result_block(clean_result || result_after_dalibo, blank_line_before_new_result)
+      add_result_block(clean_result || result_after_dalibo, blank_line_before_new_result, closing_line)
+    elsif ruby_style_result?(@current_block_lang)
+      # For ruby blocks with result=false, output the original code content without xmpfilter results
+      @output_lines << @current_code_content
+      @output_lines << (closing_line || "```\n")
+      @output_lines << "\n"
     end
 
     # Always add Dalibo link if it exists, even when result=false
@@ -101,10 +113,16 @@ module ResultHelper
     end
   end
 
-  def skip_and_pass_through_result(lines_to_pass_through, file_enum, decision = nil)
+  def skip_and_pass_through_result(lines_to_pass_through, file_enum, decision = nil, closing_line = nil)
     # Handle run=false case where there are no lines to pass through
     if lines_to_pass_through.empty?
       TestSilencer.warn_unless_testing("Skipping execution due to run=false option.")
+      # For ruby blocks, we still need to output the code content and closing line
+      if ruby_style_result?(@current_block_lang)
+        @output_lines << @current_code_content
+        @output_lines << (closing_line || "```\n")
+        @output_lines << "\n"
+      end
       return
     end
 
@@ -128,8 +146,19 @@ module ResultHelper
       TestSilencer.warn_unless_testing("Found existing mermaid SVG image for current #{@current_block_lang} block, skipping execution.")
       @output_lines.concat(lines_to_pass_through)
       # For mermaid, no additional consumption needed since it's just an image line
+    elsif ruby_style_result?(@current_block_lang)
+      # For ruby blocks with existing results, we need to output the code content, not a RESULT block
+      # So we output the original code content and closing line
+      TestSilencer.warn_unless_testing("Found existing ruby result for current #{@current_block_lang} block, skipping execution.")
+      @output_lines << @current_code_content
+      @output_lines << (closing_line || "```\n")
+      @output_lines << "\n"
+      # Consume (discard) the old-style RESULT block if it exists
+      if !lines_to_pass_through.empty? && lines_to_pass_through.first.match?(/^```ruby\s+RESULT$/i)
+        consume_and_discard_result_block(file_enum)
+      end
     else
-      lang_specific_result_type = ruby_style_result?(@current_block_lang) ? "```ruby RESULT" : "```RESULT"
+      lang_specific_result_type = "```RESULT"
       TestSilencer.warn_unless_testing("Found existing '#{lang_specific_result_type}' block for current #{@current_block_lang} block, skipping execution.")
       @output_lines.concat(lines_to_pass_through)
       consume_result_block_content(file_enum)
@@ -139,6 +168,12 @@ module ResultHelper
   def consume_result_block_content(file_enum)
     consume_block_lines(file_enum) do |line|
       @output_lines << line
+    end
+  end
+
+  def consume_and_discard_result_block(file_enum)
+    consume_block_lines(file_enum) do |line|
+      # Discard the line - don't add to output
     end
   end
 

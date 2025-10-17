@@ -7,9 +7,6 @@ markdown-run:
 ---
 
 ```ruby rerun=true
-puts "Priority test: #{Time.now.to_i}"
-```
-
-```ruby RESULT
 Priority test: 11111111
 ```
+

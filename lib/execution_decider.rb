@@ -12,8 +12,13 @@ class ExecutionDecider
     @current_block_result = current_block_result
   end
 
-  def decide(file_enum, result_block_regex_method)
+  def decide(file_enum, result_block_regex_method, code_content = nil)
     return skip_execution_run_false if run_disabled?
+
+    # For ruby blocks, check if code content contains xmpfilter results (# >>)
+    if is_ruby_block? && code_content && has_xmpfilter_results?(code_content)
+      return handle_inline_ruby_results
+    end
 
     expected_header_regex = result_block_regex_method.call(@current_block_lang)
     peek1 = peek_next_line(file_enum)
@@ -295,5 +300,24 @@ class ExecutionDecider
     # This makes sense because with result=false, there's only a flamegraph link,
     # so it should be updated on each run
     @current_block_flamegraph && !@current_block_result
+  end
+
+  def is_ruby_block?
+    @current_block_lang == "ruby"
+  end
+
+  def has_xmpfilter_results?(code_content)
+    # Check if code contains xmpfilter comment markers (# >>)
+    code_content.include?("# >>")
+  end
+
+  def handle_inline_ruby_results
+    if @current_block_rerun
+      # Rerun requested, so execute and replace inline results
+      { execute: true }
+    else
+      # Has inline results and rerun not requested, skip execution
+      { execute: false, lines_to_pass_through: [] }
+    end
   end
 end

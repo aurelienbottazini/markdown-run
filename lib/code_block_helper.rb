@@ -29,19 +29,25 @@ module CodeBlockHelper
 
   def accumulate_code_content(current_line)
     @current_code_content += current_line
-    @output_lines << current_line
+    # For ruby blocks, don't output code content yet - we'll replace it with xmpfilter output
+    unless ruby_style_result?(@current_block_lang)
+      @output_lines << current_line
+    end
   end
 
   def end_code_block(current_line, file_enum)
-    @output_lines << current_line
+    # For ruby blocks, don't output closing ``` yet - we'll add it after the xmpfilter output
+    unless ruby_style_result?(@current_block_lang)
+      @output_lines << current_line
+    end
 
     decision = decide_execution(file_enum)
 
     if decision[:execute]
       # If we consumed lines for rerun, don't add them to output (they'll be replaced)
-      execute_and_add_result(decision[:blank_line])
+      execute_and_add_result(decision[:blank_line], current_line)
     else
-      skip_and_pass_through_result(decision[:lines_to_pass_through], file_enum, decision)
+      skip_and_pass_through_result(decision[:lines_to_pass_through], file_enum, decision, current_line)
     end
 
     reset_code_block_state
@@ -49,7 +55,7 @@ module CodeBlockHelper
 
   def decide_execution(file_enum)
     decider = ExecutionDecider.new(@current_block_run, @current_block_rerun, @current_block_lang, @current_block_explain, @current_block_flamegraph, @current_block_result)
-    decision = decider.decide(file_enum, method(:result_block_regex))
+    decision = decider.decide(file_enum, method(:result_block_regex), @current_code_content)
 
     # Handle the consume_existing flag for rerun scenarios
     if decision[:consume_existing]

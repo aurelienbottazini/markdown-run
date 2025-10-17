@@ -40,10 +40,6 @@ class TestFrontmatter < Minitest::Test
 
       ```ruby
       puts "Global rerun test: \#{Time.now.to_i}"
-      ```
-
-      ```ruby RESULT
-      puts "Global rerun test: \#{Time.now.to_i}"
       # >> Global rerun test: #{actual_timestamp}
       ```
     MARKDOWN
@@ -87,10 +83,6 @@ class TestFrontmatter < Minitest::Test
       ---
 
       ```ruby
-      puts "Language-specific ruby test: \#{Time.now.to_i}"
-      ```
-
-      ```ruby RESULT
       puts "Language-specific ruby test: \#{Time.now.to_i}"
       # >> Language-specific ruby test: #{actual_timestamp}
       ```
@@ -136,10 +128,6 @@ class TestFrontmatter < Minitest::Test
 
       ```ruby rerun=true
       puts "Priority test: \#{Time.now.to_i}"
-      ```
-
-      ```ruby RESULT
-      puts "Priority test: \#{Time.now.to_i}"
       # >> Priority test: #{actual_timestamp}
       ```
     MARKDOWN
@@ -183,10 +171,6 @@ class TestFrontmatter < Minitest::Test
       ---
 
       ```ruby
-      puts "Override test: \#{Time.now.to_i}"
-      ```
-
-      ```ruby RESULT
       puts "Override test: \#{Time.now.to_i}"
       # >> Override test: #{actual_timestamp}
       ```

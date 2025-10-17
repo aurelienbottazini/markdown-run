@@ -39,10 +39,6 @@ class TestMarkdownRun < Minitest::Test
     expected_output = <<~MARKDOWN.strip
       ```ruby rerun=true
       puts "Should change: \#{Time.now.to_i}"
-      ```
-
-      ```ruby RESULT
-      puts "Should change: \#{Time.now.to_i}"
       # >> Should change: #{actual_timestamp}
       ```
     MARKDOWN
@@ -69,10 +65,6 @@ class TestMarkdownRun < Minitest::Test
 
     expected_output = <<~MARKDOWN.strip
       ```ruby rerun=true
-      puts "Should also change: \#{Time.now.to_i}"
-      ```
-
-      ```ruby RESULT
       puts "Should also change: \#{Time.now.to_i}"
       # >> Should also change: #{actual_timestamp}
       ```
@@ -133,10 +125,6 @@ class TestMarkdownRun < Minitest::Test
 
     expected_output = <<~MARKDOWN.strip
       ```ruby rerun
-      puts "Standalone rerun test: \#{Time.now.to_i}"
-      ```
-
-      ```ruby RESULT
       puts "Standalone rerun test: \#{Time.now.to_i}"
       # >> Standalone rerun test: #{actual_timestamp}
       ```
