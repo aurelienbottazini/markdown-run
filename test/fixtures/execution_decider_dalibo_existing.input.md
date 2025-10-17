@@ -1,4 +1,4 @@
-```psql explain
+```psql {explain}
 SELECT 'dalibo test';
 ```
 

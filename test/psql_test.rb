@@ -18,7 +18,7 @@ class TestPsql < Minitest::Test
     # Test 1: Standalone explain option
     test_file_1 = File.join(@temp_dir, "test_explain_standalone.md")
     md_content_standalone = <<~MARKDOWN
-      ```psql explain
+      ```psql {explain}
       SELECT 1 as simple_test;
       ```
     MARKDOWN
@@ -33,7 +33,7 @@ class TestPsql < Minitest::Test
     dalibo_link = result_match[2]
 
     expected_output = <<~MARKDOWN.strip
-      ```psql explain
+      ```psql {explain}
       SELECT 1 as simple_test;
       ```
 
@@ -48,7 +48,7 @@ class TestPsql < Minitest::Test
     # Test 2: Explicit explain=true option
     test_file_2 = File.join(@temp_dir, "test_explain_explicit.md")
     md_content_explicit = <<~MARKDOWN
-      ```psql explain=true
+      ```psql {explain=true}
       SELECT version();
       ```
     MARKDOWN
@@ -63,7 +63,7 @@ class TestPsql < Minitest::Test
     dalibo_link = result_match[2]
 
     expected_output = <<~MARKDOWN.strip
-      ```psql explain=true
+      ```psql {explain=true}
       SELECT version();
       ```
 
@@ -78,7 +78,7 @@ class TestPsql < Minitest::Test
     # Test 3: Explicit explain=false should work normally
     test_file_3 = File.join(@temp_dir, "test_explain_false.md")
     md_content_false = <<~MARKDOWN
-      ```psql explain=false
+      ```psql {explain=false}
       SELECT 'normal query' as test;
       ```
     MARKDOWN
@@ -86,7 +86,7 @@ class TestPsql < Minitest::Test
     MarkdownRun.run_code_blocks(test_file_3)
 
     expected_output = <<~MARKDOWN.strip
-      ```psql explain=false
+      ```psql {explain=false}
       SELECT 'normal query' as test;
       ```
 

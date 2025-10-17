@@ -6,7 +6,7 @@ markdown-run:
     rerun: false
 ---
 
-```ruby rerun=true
+```ruby {rerun=true}
 Priority test: 11111111
 ```
 

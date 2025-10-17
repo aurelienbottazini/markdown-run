@@ -1,8 +1,9 @@
 require_relative "language_configs"
 
 class CodeBlockParser
-  # Code block header pattern: ```language options
-  CODE_BLOCK_START_PATTERN = /^```(\w+)(?:\s+(.*))?$/i
+  # Code block header pattern: ```language {options}
+  # Supports both ```language and ```language {options} formats
+  CODE_BLOCK_START_PATTERN = /^```(\w+)(?:\s*\{(.*)\})?$/i
   RUBY_RESULT_BLOCK_PATTERN = /^```ruby\s+RESULT$/i
   BLOCK_END_PATTERN = "```"
 

@@ -99,7 +99,7 @@ class TestFrontmatter < Minitest::Test
           rerun: false
       ---
 
-      ```ruby rerun=true
+      ```ruby {rerun=true}
       puts "Priority test: \#{Time.now.to_i}"
       ```
 
@@ -126,7 +126,7 @@ class TestFrontmatter < Minitest::Test
           rerun: false
       ---
 
-      ```ruby rerun=true
+      ```ruby {rerun=true}
       puts "Priority test: \#{Time.now.to_i}"
       # >> Priority test: #{actual_timestamp}
       ```

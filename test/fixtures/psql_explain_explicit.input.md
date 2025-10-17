@@ -1,3 +1,3 @@
-```psql explain=true
+```psql {explain=true}
 SELECT version();
 ```

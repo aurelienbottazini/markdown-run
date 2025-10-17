@@ -1,4 +1,4 @@
-```ruby run=false rerun=true
+```ruby {run=false rerun=true}
 Existing result
 ```
 

@@ -1,3 +1,3 @@
-```ruby result run
+```ruby {result run}
 puts "Standalone result option"
 ```

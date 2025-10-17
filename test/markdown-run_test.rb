@@ -19,7 +19,7 @@ class TestMarkdownRun < Minitest::Test
 
   def test_rerun_functionality
     md_content_rerun_true = <<~MARKDOWN
-      ```ruby rerun=true
+      ```ruby {rerun=true}
       puts "Should change: \#{Time.now.to_i}"
       ```
 
@@ -37,7 +37,7 @@ class TestMarkdownRun < Minitest::Test
     actual_timestamp = timestamp_match[1]
 
     expected_output = <<~MARKDOWN.strip
-      ```ruby rerun=true
+      ```ruby {rerun=true}
       puts "Should change: \#{Time.now.to_i}"
       # >> Should change: #{actual_timestamp}
       ```
@@ -46,7 +46,7 @@ class TestMarkdownRun < Minitest::Test
 
     # Test 4: rerun=true with blank line before result block
     md_content_rerun_true_blank = <<~MARKDOWN
-      ```ruby rerun=true
+      ```ruby {rerun=true}
       puts "Should also change: \#{Time.now.to_i}"
       ```
 
@@ -64,7 +64,7 @@ class TestMarkdownRun < Minitest::Test
     actual_timestamp = timestamp_match[1]
 
     expected_output = <<~MARKDOWN.strip
-      ```ruby rerun=true
+      ```ruby {rerun=true}
       puts "Should also change: \#{Time.now.to_i}"
       # >> Should also change: #{actual_timestamp}
       ```
@@ -105,7 +105,7 @@ class TestMarkdownRun < Minitest::Test
 
   def test_standalone_option_syntax
     md_content_standalone_rerun = <<~MARKDOWN
-      ```ruby rerun
+      ```ruby {rerun}
       puts "Standalone rerun test: \#{Time.now.to_i}"
       ```
 
@@ -124,7 +124,7 @@ class TestMarkdownRun < Minitest::Test
     actual_timestamp = timestamp_match[1]
 
     expected_output = <<~MARKDOWN.strip
-      ```ruby rerun
+      ```ruby {rerun}
       puts "Standalone rerun test: \#{Time.now.to_i}"
       # >> Standalone rerun test: #{actual_timestamp}
       ```

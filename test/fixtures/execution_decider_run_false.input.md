@@ -1,3 +1,3 @@
-```psql run=false
+```psql {run=false}
 SELECT 'should not execute';
 ```
