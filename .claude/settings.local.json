@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ruby -e:*)",
+      "Bash(ruby -I lib -r markdown_run -e:*)",
+      "Bash(flog:*)",
+      "Bash(rake test:*)",
+      "Bash(bin/markdown-run:*)",
+      "Bash(exe/markdown-run:*)",
+      "Bash(cat:*)",
+      "Bash(for i in {1..3})",
+      "Bash(do echo \"Run $i:\" exe/markdown-run markdown-run-sample.md)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

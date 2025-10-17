@@ -122,7 +122,6 @@ module ResultHelper
       if ruby_style_result?(@current_block_lang)
         @output_lines << @current_code_content
         @output_lines << (closing_line || "```\n")
-        @output_lines << "\n"
       end
       return
     end
