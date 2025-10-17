@@ -55,6 +55,16 @@ example vscode keybinding
 
 ### Code block options
 
+Options are specified using Pandoc-style curly braces after the language identifier:
+
+```markdown
+```ruby {rerun=true}
+puts "Hello World"
+```
+```
+
+**Available options:**
+
 - `run=true` or `run=false` to control whether a code block should be executed at all. `run=true` is the default if not specified
 - `rerun=true` or `rerun=false` to control whether a code block should be re-executed if a result block already exists. `rerun=false` is the default if not specified
 - `result=true` or `result=false` to control whether the result block should be displayed after execution. `result=true` is the default if not specified. When `result=false`, the code still executes but the result block is hidden
@@ -77,31 +87,31 @@ Explicit assignments (e.g., `run=false`) take precedence over standalone options
 
 Examples:
 
-```js run=false
+```js {run=false}
 console.log("This will not execute at all");
 ```
 
-```js rerun
+```js {rerun}
 console.log("This will re-execute even if result exists");
 ```
 
-```js run=true rerun=false
+```js {run=true rerun=false}
 console.log("This will execute only if no result exists");
 ```
 
-```ruby result=false run
+```ruby {result=false run}
 puts "This executes but the result block is hidden"
 ```
 
-```psql explain
+```psql {explain}
 SELECT * FROM users WHERE id = 1;
 ```
 
-```psql explain=true
+```psql {explain=true}
 EXPLAIN (ANALYZE) SELECT * FROM large_table;
 ```
 
-```psql flamegraph
+```psql {flamegraph}
 SELECT u.name, COUNT(o.id) as order_count
 FROM users u
 LEFT JOIN orders o ON u.id = o.user_id
@@ -111,12 +121,12 @@ ORDER BY order_count DESC
 LIMIT 10;
 ```
 
-```psql flamegraph=true result=false
+```psql {flamegraph=true result=false}
 -- This will generate a flamegraph but hide the JSON result block
 SELECT * FROM complex_query_with_joins;
 ```
 
-```psql result=false explain
+```psql {result=false explain}
 SELECT * FROM large_table;
 -- This will execute the explain query and show the Dalibo link but hide the result block
 ```
@@ -125,7 +135,7 @@ SELECT * FROM large_table;
 
 PostgreSQL flamegraph blocks generate interactive SVG flamegraphs from query execution plans:
 
-```psql flamegraph
+```psql {flamegraph}
 SELECT users.*, orders.total
 FROM users
 JOIN orders ON users.id = orders.user_id
