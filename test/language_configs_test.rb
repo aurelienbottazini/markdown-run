@@ -2,6 +2,11 @@ require_relative 'test_helper'
 require_relative '../lib/language_configs'
 
 class LanguageConfigsTest < Minitest::Test
+  def setup
+    # Reset PostgresHelper cache before each test
+    PostgresHelper.reset_cache! if defined?(PostgresHelper)
+  end
+
   def test_js_config_command_returns_correct_format
     # Test that the command lambda returns the expected format
     command, options = JS_CONFIG[:command].call(**{ code_content: "console.log('test')", temp_file_path: "/tmp/test.js" })
@@ -66,43 +71,43 @@ class LanguageConfigsTest < Minitest::Test
 
   # PSQL Configuration Tests
   def test_psql_config_when_available
-    # Temporarily stub system method to simulate psql being available
-    stub_system = ->(command) {
-      command == "command -v psql > /dev/null 2>&1"
-    }
+    # Stub PostgresHelper to return local psql command
+    PostgresHelper.stub :available?, true do
+      PostgresHelper.stub :psql_command, "psql" do
+        PostgresHelper.stub :validate_env_vars!, nil do
+          command, options = SUPPORTED_LANGUAGES["psql"][:command].call(**{ code_content: "SELECT 1;" })
 
-    TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
-      command, options = SUPPORTED_LANGUAGES["psql"][:command].call(**{ code_content: "SELECT 1;" })
-
-      assert_equal "psql -A -t -X", command
-      assert_equal({ stdin_data: "SELECT 1;" }, options)
+          assert_equal "psql -A -t -X", command
+          assert_equal({ stdin_data: "SELECT 1;" }, options)
+        end
+      end
     end
   end
 
   def test_psql_config_when_unavailable
-    # Temporarily stub system method to simulate psql not being available
-    stub_system = ->(command) {
-      false  # psql not available
-    }
-
-    TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
-      assert_raises(SystemExit) do
-        SUPPORTED_LANGUAGES["psql"][:command].call(**{ code_content: "SELECT 1;" })
+    # Stub PostgresHelper to indicate psql is not available
+    PostgresHelper.stub :available?, false do
+      PostgresHelper.stub :psql_command, nil do
+        PostgresHelper.stub :using_docker?, false do
+          assert_raises(SystemExit) do
+            SUPPORTED_LANGUAGES["psql"][:command].call(**{ code_content: "SELECT 1;" })
+          end
+        end
       end
     end
   end
 
   def test_psql_config_with_explain
-    # Temporarily stub system method to simulate psql being available
-    stub_system = ->(command) {
-      command == "command -v psql > /dev/null 2>&1"
-    }
+    # Stub PostgresHelper to return local psql command
+    PostgresHelper.stub :available?, true do
+      PostgresHelper.stub :psql_command, "psql" do
+        PostgresHelper.stub :validate_env_vars!, nil do
+          command, options = SUPPORTED_LANGUAGES["psql"][:command].call(**{ code_content: "SELECT 1;", explain: true })
 
-    TOPLEVEL_BINDING.eval("self").stub(:system, stub_system) do
-      command, options = SUPPORTED_LANGUAGES["psql"][:command].call(**{ code_content: "SELECT 1;", explain: true })
-
-      assert_equal "psql -A -t -X", command
-      assert_equal({ stdin_data: "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) SELECT 1;" }, options)
+          assert_equal "psql -A -t -X", command
+          assert_equal({ stdin_data: "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) SELECT 1;" }, options)
+        end
+      end
     end
   end
 

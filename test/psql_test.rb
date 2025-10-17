@@ -1,12 +1,19 @@
 require_relative 'test_helper'
+require_relative '../lib/postgres_helper'
 
 # --- PSQL-specific Tests ---
 class TestPsql < Minitest::Test
   include MarkdownTestHelper
 
+  def setup
+    super
+    # Reset PostgresHelper cache before each test
+    PostgresHelper.reset_cache!
+  end
+
   def test_explain_option_syntax
     # Test explain option parsing for psql
-    skip("PostgreSQL not available") unless system("command -v psql > /dev/null 2>&1")
+    skip("PostgreSQL not available") unless PostgresHelper.available?
 
     # Test 1: Standalone explain option
     test_file_1 = File.join(@temp_dir, "test_explain_standalone.md")
@@ -91,7 +98,7 @@ class TestPsql < Minitest::Test
   end
 
   def test_result_option_with_psql_explain
-    skip("PostgreSQL not available") unless system("command -v psql > /dev/null 2>&1")
+    skip("PostgreSQL not available") unless PostgresHelper.available?
 
     # Test that psql explain default works
     md_content_psql_explain = <<~MARKDOWN
@@ -137,7 +144,7 @@ class TestPsql < Minitest::Test
   end
 
   def test_frontmatter_defaults_with_psql_explain
-    skip("PostgreSQL not available") unless system("command -v psql > /dev/null 2>&1")
+    skip("PostgreSQL not available") unless PostgresHelper.available?
 
     # Test that psql explain default works
     md_content_psql_explain = <<~MARKDOWN

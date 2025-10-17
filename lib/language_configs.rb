@@ -1,5 +1,6 @@
-require 'securerandom'
-require_relative 'test_silencer'
+require "securerandom"
+require_relative "test_silencer"
+require_relative "postgres_helper"
 
 JS_CONFIG = {
   command: proc { |temp_file_path: nil, **|
@@ -24,20 +25,26 @@ SQLITE_CONFIG = {
 SUPPORTED_LANGUAGES = {
   "psql" => {
     command: proc { |code_content: nil, explain: false, flamegraph: false, **|
-      psql_exists = system("command -v psql > /dev/null 2>&1")
-      unless psql_exists
-        TestSilencer.abort_unless_testing "Error: psql command not found. Please install PostgreSQL or ensure psql is in your PATH."
+      unless PostgresHelper.available?
+        if PostgresHelper.psql_command && PostgresHelper.using_docker?
+          TestSilencer.abort_unless_testing "Error: PostgreSQL is running in Docker but required environment variables (PGUSER, PGDATABASE) are not set. Please set these variables before running psql commands."
+        else
+          TestSilencer.abort_unless_testing "Error: psql command not found. Please install PostgreSQL locally, ensure psql is in your PATH, or run PostgreSQL in a Docker container."
+        end
       end
+
+      PostgresHelper.validate_env_vars!
+      psql_cmd = PostgresHelper.psql_command
 
       # Modify the SQL query if explain or flamegraph option is enabled
       if explain || flamegraph
         # Wrap the query with EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
         # Remove any trailing semicolons and whitespace, then add our EXPLAIN wrapper
-        clean_query = code_content.strip.gsub(/;\s*$/, '')
+        clean_query = code_content.strip.gsub(/;\s*$/, "")
         explained_query = "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) #{clean_query};"
-        [ "psql -A -t -X", { stdin_data: explained_query } ]
+        [ "#{psql_cmd} -A -t -X", { stdin_data: explained_query } ]
       else
-        [ "psql -A -t -X", { stdin_data: code_content } ]
+        [ "#{psql_cmd} -A -t -X", { stdin_data: code_content } ]
       end
     }
   },

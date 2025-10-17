@@ -55,6 +55,12 @@ module MarkdownTestHelper
       # Skip if expected file doesn't exist
       next unless File.exist?(expected_file)
 
+      # Skip psql fixtures if PostgreSQL is not available
+      if test_case.start_with?("psql")
+        require_relative '../lib/postgres_helper' unless defined?(PostgresHelper)
+        next unless PostgresHelper.available?
+      end
+
       input_content = File.read(input_file)
       expected_content = File.read(expected_file).strip
 

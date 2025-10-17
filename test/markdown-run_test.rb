@@ -1,8 +1,15 @@
 require_relative 'test_helper'
+require_relative '../lib/postgres_helper'
 
 # --- Minitest Test Class Definition ---
 class TestMarkdownRun < Minitest::Test
   include MarkdownTestHelper
+
+  def setup
+    super
+    # Reset PostgresHelper cache before each test
+    PostgresHelper.reset_cache!
+  end
 
   def test_script_runs_without_error_on_empty_file
     create_md_file("")
