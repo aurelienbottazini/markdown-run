@@ -17,7 +17,7 @@ module ResultHelper
   end
 
   def result_block_header(lang)
-    ruby_style_result?(lang) ? "```ruby RESULT\n" : "```RESULT\n"
+    ruby_style_result?(lang) ? "```ruby\n" : "``` {result}\n"
   end
 
   def result_block_regex(lang)
@@ -25,9 +25,10 @@ module ResultHelper
       # For mermaid, look for existing image tags with .svg extension
       /^!\[.*\]\(.*\.svg\)$/i
     elsif ruby_style_result?(lang)
+      # For ruby, check for old-style ```ruby RESULT blocks (for backward compatibility during migration)
       /^```ruby\s+RESULT$/i
     else
-      /^```RESULT$/i
+      /^```\s*\{result\}$/i
     end
   end
 
@@ -62,7 +63,7 @@ module ResultHelper
   end
 
   def handle_existing_ruby_result_block(current_line, file_enum)
-    TestSilencer.warn_unless_testing("Found existing '```ruby RESULT' block, passing through.")
+    TestSilencer.warn_unless_testing("Found existing '```ruby RESULT' or '```ruby' result block, passing through.")
     @output_lines << current_line
     @state = :inside_result_block
   end
@@ -147,18 +148,15 @@ module ResultHelper
       @output_lines.concat(lines_to_pass_through)
       # For mermaid, no additional consumption needed since it's just an image line
     elsif ruby_style_result?(@current_block_lang)
-      # For ruby blocks with existing results, we need to output the code content, not a RESULT block
-      # So we output the original code content and closing line
+      # For ruby blocks with existing old-style RESULT blocks, discard them and output inline results
       TestSilencer.warn_unless_testing("Found existing ruby result for current #{@current_block_lang} block, skipping execution.")
       @output_lines << @current_code_content
       @output_lines << (closing_line || "```\n")
       @output_lines << "\n"
-      # Consume (discard) the old-style RESULT block if it exists
-      if !lines_to_pass_through.empty? && lines_to_pass_through.first.match?(/^```ruby\s+RESULT$/i)
-        consume_and_discard_result_block(file_enum)
-      end
+      # Always consume and discard the old-style RESULT block
+      consume_and_discard_result_block(file_enum)
     else
-      lang_specific_result_type = "```RESULT"
+      lang_specific_result_type = "``` {result}"
       TestSilencer.warn_unless_testing("Found existing '#{lang_specific_result_type}' block for current #{@current_block_lang} block, skipping execution.")
       @output_lines.concat(lines_to_pass_through)
       consume_result_block_content(file_enum)

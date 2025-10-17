@@ -2,6 +2,6 @@
 SELECT 'basic test';
 ```
 
-```RESULT
+``` {result}
 basic test
 ```
