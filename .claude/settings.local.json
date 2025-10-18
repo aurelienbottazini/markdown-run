@@ -9,7 +9,9 @@
       "Bash(exe/markdown-run:*)",
       "Bash(cat:*)",
       "Bash(for i in {1..3})",
-      "Bash(do echo \"Run $i:\" exe/markdown-run markdown-run-sample.md)"
+      "Bash(do echo \"Run $i:\" exe/markdown-run markdown-run-sample.md)",
+      "Bash(gem list:*)",
+      "Bash(rake:*)"
     ],
     "deny": [],
     "ask": []
