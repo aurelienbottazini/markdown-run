@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+## [0.2.1]
+
+- fix extra blank line with ruby blocks
+
+## [0.2.0]
+
+- Refactor block options to be proper markdown
+
 ## [0.1.12] - 2025-06-04
 
 -   Added `flamegraph` option for psql code blocks to generate PostgreSQL query execution plan flamegraphs as SVG images
